@@ -148,12 +148,18 @@ const iso = (ms) => new Date(ms).toISOString();
     await check('a failed outbox insert leaves neither the event nor the outbox row', async () => {
         const u = t.network.addUser('atomic');
         await t.ctx.s.db.exec('DELETE FROM today_outbox');
-        await t.ctx.s.db.exec("ALTER TABLE today_outbox ADD CONSTRAINT outbox_never CHECK (topic <> 'today.event.scheduled')");
+        // The outbox insert fails (no DDL: the test role does not own the table on the PostgreSQL store).
+        const db = t.ctx.s.db;
+        const exec = db.exec;
+        db.exec = function (sql, ...rest) {
+            if (/INSERT INTO today_outbox/.test(String(sql))) return Promise.reject(new Error('the outbox is down'));
+            return exec.call(this, sql, ...rest);
+        };
         try {
             const r = await t.get('/api/v1/events', { as: u, json: { kind: 'event', title: 'Atomic', starts_at: soon(), tz: 'UTC' } });
             assert.strictEqual(r.status, 500);
         } finally {
-            await t.ctx.s.db.exec('ALTER TABLE today_outbox DROP CONSTRAINT outbox_never');
+            db.exec = exec;
         }
         assert.strictEqual(await t.ctx.s.db.value('SELECT COUNT(*)::int AS n FROM today_events WHERE title = $1', ['Atomic']), 0);
         assert.strictEqual(await t.ctx.s.db.value('SELECT COUNT(*)::int AS n FROM today_outbox WHERE payload->>$1 = $2', ['title', 'Atomic']), 0);
