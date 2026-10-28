@@ -1,0 +1,57 @@
+{
+  "repository": "OpenVibers/OpenVibe.Today",
+  "version": "0.1.0",
+  "stage": "product",
+  "code": true,
+  "wave": "W21",
+  "plan": "OpenVibe.Today: the network's time bus and calendar authority — one schedule for streams and events, reminders through Network, private and public ICS feeds, and a daily brief",
+  "runtime": "node 22, express 4, PostgreSQL 18 (openvibe-sdk/db, async) + Valkey 9",
+  "port": "5100",
+  "domain": "openvibe.today",
+  "contracts": "openvibe-contracts v0.213.0",
+  "sdk": "openvibe-sdk v0.64.0",
+  "shared": "openvibe-shared v4.12.0",
+  "packages": [
+    "openvibe-contracts v0.213.0",
+    "openvibe-sdk v0.64.0",
+    "openvibe-shared v4.12.0"
+  ],
+  "summary": "OpenVibe.Today is the network's time bus and calendar authority. A person schedules a stream (on their Live channel) or a plain event; the public schedule and a channel's ICS feed are readable without an account, a private token feed is one URL per person and rotation invalidates the old one, and reminders arrive through OpenVibe.Network. Events move from scheduled to live and done as OpenVibe.Live says so over OpenVibe.Events, while the daily brief is built from the agenda, today's reminders and OpenVibe.Live's public Rundown.",
+  "works": [
+    "Public events API and pages: GET /api/v1/events, one event with schema.org Event JSON-LD, a channel's schedule and its ICS feed",
+    "Scheduling: POST/PATCH/DELETE /api/v1/events, validation, Idempotency-Key, a cap of 60 scheduled future events per owner, followers-only events, and a same-origin rule for session writes",
+    "ICS: RFC 5545 with CRLF, 75-octet UTF-8-safe folding, TEXT escaping, UID/SEQUENCE/STATUS/LAST-MODIFIED, cancelled events emitted for 7 days then dropped, private token feeds and rotation",
+    "Reminders: upsert/remove/list, a 60 s job that claims a due row atomically and sends one Network notification (TODAY_REMINDER)",
+    "Agenda: own events, reminded events and the public or followers-only events of followed channels, with follows_unavailable when Network is down",
+    "The brief: later today, your reminders and up to three Rundown items; one stored brief per subject per day and a 06:00 UTC job",
+    "Events: a transactional outbox with a fixed evt_ id, backoff and a claim lease; live.stream.started|ended consumed exactly once through today_processed",
+    "Account export and deletion over every table that holds a subject (the feed token itself is never exported)",
+    "Sign-in with OpenVibe.Network (PKCE S256, httpOnly session cookies), readiness, Prometheus metrics, crawl artifacts and deploy files"
+  ],
+  "notYet": [
+    "Notifications for the daily brief (v1 builds and stores it without notifying)",
+    "A watched-event reminder scheduler beyond the one reminder per person and event",
+    "Followed channels in the private ICS token feed are best-effort: the feed request has no person token, so they appear only while this process remembers the last follows read",
+    "Timezone selection persisted per person (the brief accepts tz; otherwise it is UTC)"
+  ],
+  "capabilitiesRegistered": false,
+  "serviceManifestRegistered": false,
+  "deployed": false,
+  "placeholderInSites": false,
+  "features": [
+    "events API",
+    "scheduling pages",
+    "ICS feeds",
+    "reminders",
+    "agenda with follows",
+    "daily brief",
+    "Events outbox and consumer",
+    "account export and deletion",
+    "Network sign-in",
+    "server-rendered pages",
+    "discovery",
+    "deploy files"
+  ],
+  "deployment": "not deployed: the unit and nginx vhost are deploy/systemd/openvibe-today.service and deploy/nginx/openvibe.today.conf",
+  "updated": "2026-10-28"
+}

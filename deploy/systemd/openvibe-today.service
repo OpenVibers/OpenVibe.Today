@@ -1,0 +1,32 @@
+[Unit]
+Description=OpenVibe.Today — the network's time bus and calendar authority.
+# Network (sign-in, JWKS, follows and notifications) should be up first, but Today degrades honestly without it:
+# the public schedule and ICS feeds serve, and sign-in and the guarded routes wait for the signing key
+# (see /api/ready).
+After=network.target postgresql.service pgbouncer.service valkey-server.service
+Wants=openvibe-network.service postgresql.service pgbouncer.service valkey-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/openvibe.today
+EnvironmentFile=/etc/openvibe/today.env
+Environment=NODE_ENV=production
+Environment=PORT=5100
+Environment=HOST=127.0.0.1
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env node /opt/openvibe.today/server/index.js
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+# In-flight requests get the 10 s drain.
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# OpenVibe.Today's own database is PostgreSQL on the host's data role; the code tree stays read-only.
+
+[Install]
+WantedBy=multi-user.target
