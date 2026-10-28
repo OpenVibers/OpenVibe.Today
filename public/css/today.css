@@ -115,7 +115,7 @@ html.ov-motion .td-demo-toast { animation: td-toast 4.5s ease-in-out infinite; }
 .td-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 24px 0 0; }
 .td-facts > div { padding: 10px 12px; border-radius: 12px; background: var(--bg-card, #0f1729); border: 1px solid var(--border, #1f2d47); }
 .td-facts dt { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted, #7386a3); }
-.td-facts dd { margin: 4px 0 0; font-weight: 650; }
+.td-facts dd { margin: 4px 0 0; font-weight: 650; overflow-wrap: anywhere; }
 
 /* Cards: the agenda's side panel and the brief. */
 .td-card { padding: 16px; border-radius: 18px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #101828); }
