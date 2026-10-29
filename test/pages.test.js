@@ -7,8 +7,12 @@ const assert = require('assert');
 const { boot, check, done } = require('./helpers/boot');
 const { assetVersion } = require('../server/render/layout');
 
-function jsonLd(html) {
+// One JSON-LD script per page: every node lives in the page's @graph.
+function scripts(html) {
     return [...String(html).matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+}
+function jsonLd(html) {
+    return scripts(html).flatMap((x) => (Array.isArray(x['@graph']) ? x['@graph'] : [x]));
 }
 
 (async () => {
@@ -26,9 +30,21 @@ function jsonLd(html) {
         assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=60');
         assert.strictEqual(r.headers.get('vary'), 'Cookie');
         for (const marker of ['id="td-home"', 'id="td-upcoming"', 'id="main"', '<noscript><nav', '<footer id="ov-footer"', 'Public stream']) assert.ok(r.text.includes(marker), marker);
+        assert.strictEqual(scripts(r.text).length, 1, 'the page carries exactly one JSON-LD script');
         const types = jsonLd(r.text).map((x) => x['@type']);
         assert.ok(types.includes('WebSite'), types.join(','));
         assert.ok(types.includes('WebApplication'), types.join(','));
+        // The day's list is dated, so each row is an Event node describing the event it links to.
+        const events = jsonLd(r.text).filter((x) => x['@type'] === 'Event');
+        assert.strictEqual(events.length, 1, 'one Event for the one event on the page');
+        assert.strictEqual(events[0].name, 'Public stream');
+        assert.strictEqual(events[0].startDate, event.starts_at);
+        assert.strictEqual(events[0].url, `https://openvibe.today/e/${event.id}`);
+        assert.strictEqual(events[0].organizer.name, '@alice');
+        assert.ok(r.text.includes(`href="/e/${event.id}"`), "the Event's url is the row's link");
+        // A page with nothing dated says so by having no Event node.
+        const developers = jsonLd((await t.get('/developers')).text);
+        assert.ok(!developers.some((x) => x['@type'] === 'Event'));
     });
 
     await check('a page drawn for a signed-in person is private, no-store', async () => {
