@@ -27,6 +27,81 @@ const views = require('../views');
 const PUBLIC_CACHE = 'public, max-age=60';
 const DAY = 24 * 60 * 60_000;
 
+/** One event's end: its own, or an hour after it starts. */
+const eventEnd = (e) => e.ends_at || new Date(new Date(e.starts_at).getTime() + 60 * 60_000).toISOString();
+
+/** schema.org Event for one of this site's events. */
+function eventJsonLd(e, config) {
+    const base = String(config.baseUrl).replace(/\/+$/, '');
+    const end = eventEnd(e);
+    const organizer = e.channel
+        ? { '@type': 'Person', name: `@${e.channel}`, url: `https://openvibe.live/@${encodeURIComponent(e.channel)}` }
+        : { '@type': 'Organization', name: SITE_NAME, url: base };
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'Event',
+        name: e.title,
+        startDate: e.starts_at,
+        endDate: end,
+        eventStatus: e.status === 'cancelled' ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
+        eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+        location: { '@type': 'VirtualLocation', url: e.url || `${base}/e/${e.id}` },
+        organizer,
+        ...(e.description ? { description: e.description } : {}),
+        url: `${base}/e/${e.id}`,
+    };
+}
+
+/**
+ * The public pages' own options, so that the routes and the agent layer's Markdown twins
+ * (openvibe-shared/agent-layer) render the very same page. `agent: true` marks a page that has a twin: the head and
+ * the Link header advertise it. Nothing here is drawn for a signed-in person.
+ */
+function createPublicPageViews(ctx) {
+    const { config, s, events } = ctx;
+    const base = () => String(config.baseUrl).replace(/\/+$/, '');
+
+    async function home() {
+        const now = s.now();
+        const rows = await events.listPublic({ from: new Date(now - 2 * 60 * 60_000).toISOString(), to: new Date(now + 60 * DAY).toISOString(), limit: 20 });
+        return {
+            index: true, cache: PUBLIC_CACHE, agent: true,
+            title: null,
+            body: raw(views.home({ upcoming: rows, now })),
+            description: 'Streams, events and reminders across OpenVibe on one calendar: schedule a stream, get reminded, and subscribe in your own calendar app.',
+            jsonLd: homeJsonLd(config),
+        };
+    }
+
+    function developers() {
+        const description = 'The JSON API, the ICS feeds and the Events topics OpenVibe.Today publishes and consumes.';
+        return {
+            index: true, cache: PUBLIC_CACHE, agent: true,
+            title: 'The OpenVibe.Today API',
+            description,
+            jsonLd: [seo.jsonLd.webPage({ name: 'The OpenVibe.Today API', url: `${base()}/developers`, description, siteUrl: base() })],
+            body: raw(views.developers()),
+        };
+    }
+
+    /** One public event as an anonymous visitor sees it (no reminders, no owner controls), or null. */
+    async function event(id) {
+        const row = await events.byIdForViewer(String(id || ''), null);
+        if (!row) return null;
+        const e = events.wire(row);
+        if (e.visibility !== 'public' || e.status === 'cancelled') return null;
+        return {
+            index: true, cache: PUBLIC_CACHE, agent: true,
+            title: e.title,
+            description: (e.description || `${e.title} on OpenVibe.Today`).slice(0, 160),
+            jsonLd: [eventJsonLd(e, config)],
+            body: raw(views.event({ e, end: eventEnd(e), reminder: null, own: false, signedIn: false, path: `/e/${e.id}` })),
+        };
+    }
+
+    return { home, developers, event };
+}
+
 function createPageRoutes(ctx) {
     const { config, s, events, feeds, agenda, brief } = ctx;
     const r = asyncRouter();
@@ -38,17 +113,8 @@ function createPageRoutes(ctx) {
     const signInPrompt = (what, next) => html`<div class="notice">${what} <a href="/auth/login?next=${encodeURIComponent(next)}">Sign in with OpenVibe</a>.</div>`;
 
     // ── Home ─────────────────────────────────────────────────
-    r.get('/', async (req, res) => {
-        const now = s.now();
-        const rows = await events.listPublic({ from: new Date(now - 2 * 60 * 60_000).toISOString(), to: new Date(now + 60 * DAY).toISOString(), limit: 20 });
-        return page(req, res, {
-            index: true, cache: PUBLIC_CACHE,
-            title: null,
-            body: raw(views.home({ upcoming: rows, now })),
-            description: 'Streams, events and reminders across OpenVibe on one calendar: schedule a stream, get reminded, and subscribe in your own calendar app.',
-            jsonLd: homeJsonLd(config),
-        });
-    });
+    const publicViews = createPublicPageViews(ctx);
+    r.get('/', async (req, res) => page(req, res, await publicViews.home()));
 
     // ── A channel's schedule ────────────────────────────────
     r.get('/@:username', async (req, res) => {
@@ -95,7 +161,9 @@ function createPageRoutes(ctx) {
     });
 
     // ── One event ───────────────────────────────────────────
-    r.get('/e/:id', async (req, res) => {
+    r.get('/e/:id', async (req, res, next) => {
+        // /e/<id>.md is the agent layer's Markdown twin (server/agent-pages.js), not an event id.
+        if (String(req.params.id || '').endsWith('.md')) return next();
         const subject = signedIn(req) ? req.viewer.subject : null;
         const row = await events.byIdForViewer(String(req.params.id || ''), subject);
         if (!row) return notFound(req, res, 'No such event');
@@ -103,29 +171,15 @@ function createPageRoutes(ctx) {
         const own = !!subject && row.owner_subject === subject;
         const reminder = subject ? ((await events.listReminders(subject)).find((x) => x.event_id === e.id) || null) : null;
         if (reminder && reminder.minutes_before == null) reminder.minutes_before = Math.round((new Date(e.starts_at).getTime() - new Date(reminder.remind_at).getTime()) / 60000);
-        const end = e.ends_at || new Date(new Date(e.starts_at).getTime() + 60 * 60_000).toISOString();
-        const organizer = e.channel
-            ? { '@type': 'Person', name: `@${e.channel}`, url: `https://openvibe.live/@${encodeURIComponent(e.channel)}` }
-            : { '@type': 'Organization', name: SITE_NAME, url: base() };
-        const jsonLd = {
-            '@context': 'https://schema.org',
-            '@type': 'Event',
-            name: e.title,
-            startDate: e.starts_at,
-            endDate: end,
-            eventStatus: e.status === 'cancelled' ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
-            eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
-            location: { '@type': 'VirtualLocation', url: e.url || `${base()}/e/${e.id}` },
-            organizer,
-            ...(e.description ? { description: e.description } : {}),
-            url: `${base()}/e/${e.id}`,
-        };
+        const end = eventEnd(e);
+        const publicEvent = e.visibility === 'public' && e.status !== 'cancelled';
         return page(req, res, {
-            index: e.visibility === 'public' && e.status !== 'cancelled',
+            index: publicEvent,
             cache: e.visibility === 'public' ? PUBLIC_CACHE : null,
+            agent: publicEvent,
             title: e.title,
             description: (e.description || `${e.title} on OpenVibe.Today`).slice(0, 160),
-            jsonLd: [jsonLd],
+            jsonLd: [eventJsonLd(e, config)],
             body: raw(views.event({ e, end, reminder, own, signedIn: !!subject, path: req.originalUrl })),
         });
     });
@@ -208,13 +262,7 @@ function createPageRoutes(ctx) {
     });
 
     // ── Developers ──────────────────────────────────────────
-    r.get('/developers', (req, res) => page(req, res, {
-        index: true, cache: PUBLIC_CACHE,
-        title: 'The OpenVibe.Today API',
-        description: 'The JSON API, the ICS feeds and the Events topics OpenVibe.Today publishes and consumes.',
-        jsonLd: [seo.jsonLd.webPage({ name: 'The OpenVibe.Today API', url: `${base()}/developers`, description: 'The JSON API, the ICS feeds and the Events topics OpenVibe.Today publishes and consumes.', siteUrl: base() })],
-        body: raw(views.developers()),
-    }));
+    r.get('/developers', (req, res) => page(req, res, publicViews.developers()));
 
     // ── ICS feeds ───────────────────────────────────────────
     r.get('/ics/:file', async (req, res) => {
@@ -255,4 +303,4 @@ function createPageRoutes(ctx) {
     return r;
 }
 
-module.exports = { createPageRoutes };
+module.exports = { createPageRoutes, createPublicPageViews };
