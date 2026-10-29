@@ -207,7 +207,7 @@ and discovery.
 AGPL-3.0-only. See [LICENSE](LICENSE).
 
 <!-- versions:start -->
-- openvibe-contracts: v0.229.0
+- openvibe-contracts: v0.233.0
 - openvibe-sdk: v0.70.0
-- openvibe-shared: v4.33.0
+- openvibe-shared: v4.36.2
 <!-- versions:end -->
