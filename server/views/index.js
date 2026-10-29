@@ -103,46 +103,52 @@ function ring(rows, now) {
 function home({ upcoming = [], now = Date.now() } = {}) {
     const channels = new Set(upcoming.map((e) => e.channel).filter(Boolean));
     const live = upcoming.filter((e) => e.status === 'live');
-    const body = sc.room({
+    const scenes = [
+        { title: 'A reminder that finds you', text: 'Tap Remind on anything coming up and it arrives in the bell on whichever OpenVibe site you have open.',
+            html: `<div class="td-demo td-demo-remind"><div class="td-demo-card">${tile(new Date(now + DAY).toISOString(), 'UTC')}<span><b>Night owls: Seattle walk</b><small>goosely · 8:00 PM</small></span><span class="td-demo-btn">Remind me</span></div>
+<div class="td-demo-toast">${kit.icon('calendar')}<span><b>Night owls: Seattle walk starts in 10 min</b><small>Today · openvibe.today</small></span></div></div>`,
+            action: { href: '/me', label: 'Your agenda' } },
+        { title: 'In the calendar you already use', text: 'Subscribe once in Google Calendar, Apple Calendar or Outlook, and every change follows on its own.',
+            html: `<div class="td-demo td-demo-cal" aria-hidden="true"><div class="td-cal-head"><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="td-cal-grid"><i style="--c:1;--r:3">Robot build, part 2</i><i style="--c:2;--r:5" class="is-room">Night owls</i><i style="--c:3;--r:2">Speedrun Sunday</i></div></div>`,
+            action: { href: '/developers#feeds', label: 'Calendar feeds' } },
+        { title: 'Schedule once, your followers know', text: 'A scheduled stream shows on your channel and in your followers’ calendars; a cancellation disappears everywhere.',
+            html: `<div class="td-demo td-demo-sched"><div class="td-demo-card is-form"><span class="td-demo-k">Stream</span><b>Robot build, part 2</b><small>Fri, 8:00 PM PDT · 2 hours · Public</small><span class="td-demo-btn">Schedule it</span></div>
+<div class="td-demo-toast">${kit.icon('live')}<span><b>carol scheduled a stream</b><small>Robot build, part 2 · Fri, 8:00 PM PDT</small></span></div></div>`,
+            action: { href: '/schedule', label: 'Schedule a stream' } },
+    ];
+    // The hero (and its live numbers) come from the shared room kit; the schedule and the scenes follow in Today's own
+    // order: the one thing to see today first, then what a reminder, a calendar and a schedule do for you.
+    const hero = sc.room({
         room: 'today',
         hero: {
             title: ROOM.line,
-            lede: 'Streams, events and reminders across OpenVibe on one calendar. Schedule a stream and your followers hear about it, set a reminder and it finds you on whatever site you are on, and subscribe once to see it all in your own calendar app.',
+            lede: 'One calendar for every stream and event.',
             start: { href: '/schedule', label: 'Schedule a stream' },
-            chips: [{ label: 'Your agenda', href: '/me' }, { label: 'Your brief', href: '/brief' }, { label: 'Calendar feeds', href: '/developers#feeds' }],
+            chips: [{ label: 'Your agenda', href: '/me' }, { label: 'Your brief', href: '/brief' }],
             motif: ring(upcoming, now),
         },
         proof: [
-            { value: live.length, label: live.length === 1 ? 'live now' : 'live now' },
-            { value: upcoming.length, label: upcoming.length === 1 ? 'thing coming up' : 'things coming up' },
-            { value: channels.size, label: channels.size === 1 ? 'channel scheduling' : 'channels scheduling' },
+            { value: live.length, label: 'live now' },
+            { value: upcoming.length, label: 'coming up' },
+            { value: channels.size, label: 'channels' },
         ].filter((p) => p.value),
-        html: `<section class="td-coming" id="td-upcoming" aria-labelledby="td-coming-h"><div class="td-head-row"><h2 id="td-coming-h">Coming up</h2><a class="td-more" href="/developers#feeds">Subscribe${kit.icon('chevron')}</a></div>
-${days(upcoming, { now, empty: 'Nothing is scheduled yet. Be the first: schedule a stream and it shows here, on your channel and in your followers’ calendars.' })}</section>`,
-        scenes: [
-            { title: 'A reminder that finds you', text: 'Tap Remind on anything coming up. Ten minutes before, it arrives in the bell on whichever OpenVibe site you have open, and it waits politely through your quiet hours.',
-                html: `<div class="td-demo td-demo-remind"><div class="td-demo-card">${tile(new Date(now + DAY).toISOString(), 'UTC')}<span><b>Night owls: Seattle walk</b><small>goosely · 8:00 PM</small></span><span class="td-demo-btn">Remind me</span></div>
-<div class="td-demo-toast">${kit.icon('calendar')}<span><b>Night owls: Seattle walk starts in 10 min</b><small>Today · openvibe.today</small></span></div></div>`,
-                action: { href: '/me', label: 'Your agenda' } },
-            { title: 'In the calendar you already use', text: 'Every channel has a public calendar, and you get a private one with everything you follow. Subscribe once in Google Calendar, Apple Calendar or Outlook, and changes and cancellations follow on their own.',
-                html: `<div class="td-demo td-demo-cal" aria-hidden="true"><div class="td-cal-head"><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="td-cal-grid"><i style="--c:1;--r:3">Robot build, part 2</i><i style="--c:2;--r:5" class="is-room">Night owls</i><i style="--c:3;--r:2">Speedrun Sunday</i></div></div>`,
-                action: { href: '/developers#feeds', label: 'Calendar feeds' } },
-            { title: 'Schedule once, your followers know', text: 'Put a stream on your schedule and it shows on your channel, in your followers’ bells and in their calendars. Cancel it and it disappears everywhere.',
-                html: `<div class="td-demo td-demo-sched"><div class="td-demo-card is-form"><span class="td-demo-k">Stream</span><b>Robot build, part 2</b><small>Fri, 8:00 PM PDT · 2 hours · Public</small><span class="td-demo-btn">Schedule it</span></div>
-<div class="td-demo-toast">${kit.icon('live')}<span><b>carol scheduled a stream</b><small>Robot build, part 2 · Fri, 8:00 PM PDT</small></span></div></div>`,
-                action: { href: '/schedule', label: 'Schedule a stream' } },
-        ],
-        explore: { title: 'More on Today', items: [
-            { title: 'Your agenda', text: 'Your events, reminders and follows', href: '/me', icon: 'ov:calendar' },
-            { title: 'Your brief', text: 'Today in one page', href: '/brief', icon: 'ov:news' },
-            { title: 'The API', text: 'JSON, calendar feeds and topics', href: '/developers', icon: 'ov:code' },
-        ] },
-        faq: { items: [
-            ['How does a reminder reach me?', 'As an OpenVibe notification: it shows in the bell on every OpenVibe site you have open, and by email or push if you chose that for its kind. Your quiet hours hold it until they end.'],
-            ['Can I see this in my own calendar app?', 'Yes. Every channel has a public calendar feed, and your agenda has a private one. Subscribe in any app that reads iCalendar (.ics); updates and cancellations follow.'],
-            ['Who sees what I schedule?', 'A public stream is on your channel, here and in feeds. A followers-only one is seen only by the people who follow you. Followers hear about at most three new schedules from you a day.'],
-        ] },
     });
+    const coming = `<section class="td-coming" id="td-upcoming" aria-labelledby="td-coming-h"><div class="td-head-row"><h2 id="td-coming-h">Coming up</h2><a class="td-more" href="/developers#feeds">Subscribe${kit.icon('chevron')}</a></div>
+${days(upcoming, { now, empty: 'Nothing is scheduled yet. Schedule a stream and it shows here, on your channel and in your followers’ calendars.' })}</section>`;
+    const scenesHTML = `<section class="sc-room-scenes" aria-label="What you can do">${scenes.map((x, i) => `<article class="sc-scene${i % 2 ? ' is-flip' : ''}" data-ov-reveal">
+<div class="sc-scene-text"><h2>${esc(x.title)}</h2>${x.text ? `<p>${esc(x.text)}</p>` : ''}${x.action ? `<a class="sc-scene-go" href="${esc(x.action.href)}">${esc(x.action.label)}${kit.icon('chevron')}</a>` : ''}</div>
+<div class="sc-scene-stage">${x.html}</div></article>`).join('')}</section>`;
+    const explore = sc.features({ title: 'More on Today', items: [
+        { title: 'Your agenda', text: 'Your events, reminders and follows', href: '/me', icon: 'ov:calendar' },
+        { title: 'Your brief', text: 'Today in one page', href: '/brief', icon: 'ov:news' },
+        { title: 'The API', text: 'JSON, calendar feeds and topics', href: '/developers', icon: 'ov:code' },
+    ] });
+    const faq = sc.faq({ items: [
+        ['How does a reminder reach me?', 'As an OpenVibe notification: it shows in the bell on every OpenVibe site you have open, and by email or push if you chose that for its kind. Your quiet hours hold it until they end.'],
+        ['Can I see this in my own calendar app?', 'Yes. Every channel has a public calendar feed, and your agenda has a private one. Subscribe in any app that reads iCalendar (.ics); updates and cancellations follow.'],
+        ['Who sees what I schedule?', 'A public stream is on your channel, here and in feeds. A followers-only one is seen only by the people who follow you. Followers hear about at most three new schedules from you a day.'],
+    ] });
+    const body = hero.replace(/<\/div>\s*$/, `${coming}${scenesHTML}${explore}${faq}</div>`);
     return `<div class="td-wrap" id="td-home">${body}</div>`;
 }
 
@@ -151,8 +157,8 @@ function channel({ username, rows = [], now = Date.now() } = {}) {
     return `<div class="td-wrap td-page-pad" id="td-channel" data-channel="${esc(username)}">
 <header class="td-page-h"><p class="td-kicker">Schedule</p><h1>@${esc(username)}</h1>
 <p class="td-lede">What this channel has planned, and a calendar you can subscribe to.</p>
-<div class="td-acts">${kit.button({ href: `https://openvibe.live/@${encodeURIComponent(username)}`, label: 'Watch on Live', kind: 'primary' })}
-<a class="ovk-btn ovk-btn--quiet" href="webcal://openvibe.today${esc(feed)}" data-feed="${esc(feed)}">${kit.icon('calendar')}Subscribe</a>
+<div class="td-acts"><a class="ovk-btn ovk-btn--primary" href="webcal://openvibe.today${esc(feed)}" data-feed="${esc(feed)}">${kit.icon('calendar')}Subscribe</a>
+${kit.button({ href: `https://openvibe.live/@${encodeURIComponent(username)}`, label: 'Watch on Live', kind: 'quiet' })}
 <a class="ovk-btn ovk-btn--quiet" href="${esc(feed)}" download>Download .ics</a></div></header>
 ${days(rows, { now, showChannel: false, empty: 'Nothing public is planned on this channel yet.' })}
 </div>`;
@@ -168,7 +174,7 @@ function event({ e, end, reminder = null, own = false, signedIn = false, path = 
         : reminder
             ? `<form method="post" action="/e/${esc(e.id)}/remind/remove" class="td-inline"><span class="td-set">${kit.icon('check')}Reminder set: ${esc((MINUTES.find(([m]) => m === reminder.minutes_before) || [0, `${reminder.minutes_before} minutes before`])[1].toLowerCase())}</span><button class="ovk-btn ovk-btn--quiet ovk-btn--small" type="submit">Remove</button></form>`
             : `<form method="post" action="/e/${esc(e.id)}/remind" class="td-inline td-remind"><label class="td-sr" for="td-min">When</label><select id="td-min" name="minutes_before">${MINUTES.map(([m, l]) => `<option value="${m}"${m === 10 ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select><button class="ovk-btn ovk-btn--primary" type="submit">${kit.icon('bell')}Remind me</button></form>`;
-    const watch = e.channel ? kit.button({ href: `https://openvibe.live/@${encodeURIComponent(e.channel)}`, label: e.status === 'live' ? 'Watch now' : `@${e.channel} on Live`, kind: e.status === 'live' ? 'primary' : 'quiet' }) : '';
+    const watch = e.channel ? kit.button({ href: `https://openvibe.live/@${encodeURIComponent(e.channel)}`, label: e.status === 'live' ? 'Watch now' : `@${e.channel} on Live`, kind: 'quiet' }) : '';
     return `<div class="td-wrap td-page-pad"><article class="td-event${done ? ' is-over' : ''}" data-event-id="${esc(e.id)}">
 <header class="td-event-h">${tile(e.starts_at, e.tz)}
 <div><p class="td-kicker">${e.kind === 'stream' ? 'Stream' : 'Event'}${e.channel ? ` · <a href="/@${esc(e.channel)}">@${esc(e.channel)}</a>` : ''}</p>
