@@ -29,6 +29,17 @@ function jsonLd(html) {
         const types = jsonLd(r.text).map((x) => x['@type']);
         assert.ok(types.includes('WebSite'), types.join(','));
         assert.ok(types.includes('WebApplication'), types.join(','));
+        // The day's list is dated, so each row is an Event node describing the event it links to.
+        const events = jsonLd(r.text).filter((x) => x['@type'] === 'Event');
+        assert.strictEqual(events.length, 1, 'one Event for the one event on the page');
+        assert.strictEqual(events[0].name, 'Public stream');
+        assert.strictEqual(events[0].startDate, event.starts_at);
+        assert.strictEqual(events[0].url, `https://openvibe.today/e/${event.id}`);
+        assert.strictEqual(events[0].organizer.name, '@alice');
+        assert.ok(r.text.includes(`href="/e/${event.id}"`), "the Event's url is the row's link");
+        // A page with nothing dated says so by having no Event node.
+        const developers = jsonLd((await t.get('/developers')).text);
+        assert.ok(!developers.some((x) => x['@type'] === 'Event'));
     });
 
     await check('a page drawn for a signed-in person is private, no-store', async () => {

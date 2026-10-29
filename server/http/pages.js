@@ -69,7 +69,8 @@ function createPublicPageViews(ctx) {
             title: null,
             body: raw(views.home({ upcoming: rows, now })),
             description: 'Streams, events and reminders across OpenVibe on one calendar: schedule a stream, get reminded, and subscribe in your own calendar app.',
-            jsonLd: homeJsonLd(config),
+            // Every row on the page is a dated, public event the reader can open: that is exactly one Event node.
+            jsonLd: [...homeJsonLd(config), ...rows.map((e) => eventJsonLd(e, config))],
         };
     }
 
