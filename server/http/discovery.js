@@ -31,11 +31,26 @@ function homeJsonLd(config) {
     ];
 }
 
+/**
+ * The public page catalogue: /sitemap.xml lists the entries marked for the sitemap and
+ * /llms-full.txt describes every entry, so the two artifacts cannot drift apart. Dynamic pages are
+ * described by their route pattern: no person's schedule, token or brief is ever listed.
+ */
 function publicPages() {
     return [
-        { path: '/', changefreq: 'daily', priority: 1.0, title: 'OpenVibe.Today home', text: 'One schedule for every stream and event on OpenVibe, with reminders and a private calendar feed.' },
-        { path: '/developers', changefreq: 'weekly', priority: 0.6, title: 'OpenVibe.Today API', text: 'The JSON API, the ICS feeds and the Events topics Today publishes and consumes.' },
+        { path: '/', sitemap: true, changefreq: 'daily', priority: 1.0, title: 'OpenVibe.Today home', text: 'The public schedule: every stream and event on OpenVibe, soonest first, with its time, channel and where to watch; reminders are sent through OpenVibe.Network.' },
+        { path: '/developers', sitemap: true, changefreq: 'weekly', priority: 0.6, title: 'OpenVibe.Today API', text: 'The JSON API for public events, the ICS feeds per channel and per person, and the Events topics Today publishes and consumes.' },
+        { path: '/@:username', changefreq: 'daily', priority: 0.5, title: 'One channel\'s public page', text: 'A channel\'s public schedule and its events, plus its public ICS feed at /ics/@<username>.ics. A person\'s own agenda and brief are never public.' },
+        { path: '/e/:id', changefreq: 'daily', priority: 0.5, title: 'One event', text: 'One public stream or event: its time, channel, description and JSON-LD, with an .ics download at /e/<id>.ics and a link to watch it on OpenVibe.Live.' },
+        { path: '/e/:id.ics', changefreq: 'daily', priority: 0.3, title: 'One event as a calendar file', text: 'The same public event as iCalendar for a calendar app.' },
+        { path: '/ics/:file', changefreq: 'daily', priority: 0.3, title: 'A calendar feed', text: 'A public channel\'s ICS feed at /ics/@<username>.ics. A person\'s private feed is at /ics/<token>.ics and is theirs alone; tokens are never listed.' },
     ];
+}
+
+/** The legal pages every OpenVibe site serves, named from the shared kit rather than retyped here. */
+function legalPages() {
+    const labels = { '/terms': 'Terms of use', '/privacy': 'Privacy policy', '/dmca': 'DMCA and takedown policy' };
+    return require('openvibe-shared/legal').PATHS.map((path) => ({ path, title: labels[path] || path.slice(1), text: `The ${(labels[path] || path.slice(1)).toLowerCase()} for OpenVibe.Today, served by the site itself.` }));
 }
 
 function createDiscoveryRoutes(ctx) {
@@ -80,10 +95,10 @@ function createDiscoveryRoutes(ctx) {
     });
 
     r.get('/llms-full.txt', (_req, res) => {
-        const entries = pages.map((p) => ({ url: p.path, title: p.title, text: p.text }));
+        const entries = [...pages, ...legalPages()].map((p) => ({ url: p.path, title: p.title, text: p.text }));
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsFull({
             site: SITE_NAME,
-            summary: 'Every public page of OpenVibe.Today: the schedule and the API.',
+            summary: 'Every public page of OpenVibe.Today: the schedule, its events and channels, and the API.',
             base: site,
             maxBytes: 256 * 1024,
             sections: [{ title: 'Pages', pages: entries }],
@@ -92,7 +107,7 @@ function createDiscoveryRoutes(ctx) {
 
     r.get('/sitemap.xml', (_req, res) => {
         const lastmod = siteUpdated();
-        const urls = pages.map((e) => ({ loc: abs(e.path), ...(lastmod ? { lastmod } : {}), changefreq: e.changefreq, priority: e.priority }));
+        const urls = pages.filter((p) => p.sitemap).map((e) => ({ loc: abs(e.path), ...(lastmod ? { lastmod } : {}), changefreq: e.changefreq, priority: e.priority }));
         res.type('application/xml').set('Cache-Control', TEXT).send(seo.sitemapXml(urls));
     });
 
