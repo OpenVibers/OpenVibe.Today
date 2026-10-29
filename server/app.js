@@ -161,6 +161,13 @@ async function createApp(opts = {}) {
     // ── Pages ───────────────────────────────────────────────
     app.use(rateLimit({ windowMs: 60_000, limit: Number(process.env.TODAY_RATE_LIMIT_PER_MIN) || 300, standardHeaders: true, legacyHeaders: false }));
     app.use(createPageRoutes(ctx));
+    // The agent layer (openvibe-shared/agent-layer): /.well-known/agent.json, and each public page's Markdown twin.
+    // It mounts after the page routes, because a page drawn for a signed-in person (/e/:id with its reminders, /me,
+    // /brief) keeps its own route, and before the 404, so an unknown twin is still a 404.
+    require('openvibe-shared/agent-layer').mount(app, {
+        descriptor: require('./agent-descriptor'),
+        render: require('./agent-pages').createAgentPages(ctx).renderPublicPage,
+    });
     app.use((req, res) => send(res, 404, {
         viewer: req.viewer, config, path: req.originalUrl, title: 'Not found',
         body: raw(require('./views').notFound()),

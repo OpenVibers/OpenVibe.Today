@@ -66,6 +66,8 @@ function renderPage(o) {
         ? html`<nav class="crumbs" aria-label="Breadcrumbs">${o.crumbs.map((c, i) => html`${i ? ' / ' : ''}${c.href ? html`<a href="${c.href}">${c.label}</a>` : c.label}`)}</nav>`
         : '';
     const scripts = (o.scripts || []).map((rel) => html`<script src="${asset(rel)}" defer></script>`);
+    // A page with a Markdown twin (o.agent) advertises it in the head; the twin itself is server/agent-pages.js.
+    const llms = `${String(o.config.baseUrl).replace(/\/+$/, '')}/llms.txt`;
     return shell.page({
         name: SITE_NAME,
         lang: 'en',
@@ -74,6 +76,8 @@ function renderPage(o) {
         siteName: SITE_NAME,
         description: o.description || `${SITE_NAME} — ${TAGLINE}`,
         canonical,
+        agentLayer: o.agent === true,
+        llms,
         robots: o.index ? 'index, follow' : 'noindex, nofollow',
         jsonLd: (o.jsonLd || []).filter(Boolean),
         home: '/',
@@ -113,6 +117,11 @@ function send(res, status, o) {
     const personal = o.viewer && o.viewer.kind === 'user';
     if (!res.get('Cache-Control')) res.set('Cache-Control', personal ? cache.htmlHeaders({ private: true }) : (o.cache || cache.htmlHeaders({ private: true })));
     res.set('Vary', 'Cookie');
+    // A page with a Markdown twin names it, as the agent layer's own responses do (openvibe-shared/agent-layer).
+    if (o.agent) {
+        const site = String(o.config.baseUrl).replace(/\/+$/, '');
+        res.set('Link', require('openvibe-shared/agent-layer').linkHeaderTags(`${site}${String(o.path || '/').split('?')[0]}`, `${site}/llms.txt`).header);
+    }
     res.status(status).type('html').send(renderPage(o));
 }
 
