@@ -31,6 +31,7 @@ const PRIVATE = ['/auth/', '/api/', '/me', '/brief', '/schedule', '/internal'];
             assert.match(r.headers.get('content-type'), /^application\/xml/);
             assert.match(r.headers.get('cache-control') || '', /public, max-age=\d+/);
             for (const p of ['/', '/developers']) assert.ok(r.text.includes(`<loc>https://openvibe.today${p}</loc>`), `no ${p} entry`);
+            for (const p of ['/@', '/e/']) assert.ok(!r.text.includes(`<loc>https://openvibe.today${p}`), `${p} is a route pattern, not a sitemap URL`);
             const lastmods = [...r.text.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
             assert.ok(lastmods.length > 0);
             assert.ok(lastmods.every((d) => d === STATUS_UPDATED), `lastmod must come from STATUS.json (${STATUS_UPDATED}), got ${[...new Set(lastmods)].join(', ')}`);
@@ -56,6 +57,8 @@ const PRIVATE = ['/auth/', '/api/', '/me', '/brief', '/schedule', '/internal'];
             const sitemap = await t.get('/sitemap.xml');
             const locs = [...sitemap.text.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
             for (const loc of locs) assert.ok(r.text.includes(loc), `llms-full.txt is missing ${loc}`);
+            assert.ok(r.text.length >= 500, `real content, not a stub (${r.text.length} characters)`);
+            for (const p of ['/@:username', '/e/:id', '/ics/:file', '/terms', '/privacy', '/dmca']) assert.ok(r.text.includes(`https://openvibe.today${p}`), `llms-full.txt names ${p}`);
             for (const p of PRIVATE) assert.ok(!r.text.includes(`https://openvibe.today${p}`));
         });
 
