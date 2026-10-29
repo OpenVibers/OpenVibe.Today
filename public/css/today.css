@@ -22,6 +22,8 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .td-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .td-more { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; font-size: .9rem; text-decoration: none; color: var(--room-strong); }
 .td-more .ovk-i { width: 1em; height: 1em; }
+.td-coming { margin-top: clamp(28px, 5vw, 48px); }
+.td-coming .td-head-row h2 { font-size: clamp(1.25rem, 2.6vw, 1.7rem); letter-spacing: -.02em; }
 .td section + section { margin-top: 28px; }
 .td-note { margin: 16px 0 0; padding: 10px 14px; border-radius: 12px; font-size: .9rem; line-height: 1.45; color: var(--text-secondary, #96a7c2); background: color-mix(in srgb, var(--warning, #f5a524) 12%, transparent); }
 .td-note.is-bad { background: color-mix(in srgb, var(--danger, #ef4444) 14%, transparent); color: var(--text-primary, #e6edf7); }
