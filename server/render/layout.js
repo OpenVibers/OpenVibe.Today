@@ -45,7 +45,9 @@ function renderPage(o) {
     const viewer = o.viewer || { kind: 'anonymous' };
     const signedIn = viewer.kind === 'user';
     const pathNow = o.path || '/';
-    const loginNext = encodeURIComponent(pathNow);
+    // The path without its query: o.path is often the whole requested URL, and a sign-in link that echoed
+    // the query would put the page's words into every page of the site (SEO-7 review, 2026-10-29).
+    const loginNext = encodeURIComponent(pathNow.split('?')[0] || '/');
     const canonical = `${o.config.baseUrl}${pathNow.split('?')[0]}`;
     const nav = {
         service: 'today',
