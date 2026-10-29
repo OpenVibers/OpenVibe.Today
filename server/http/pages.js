@@ -30,6 +30,15 @@ const DAY = 24 * 60 * 60_000;
 /** One event's end: its own, or an hour after it starts. */
 const eventEnd = (e) => e.ends_at || new Date(new Date(e.starts_at).getTime() + 60 * 60_000).toISOString();
 
+/**
+ * The page's JSON-LD in one script: every node in one @graph, so a page carries exactly one JSON-LD script.
+ * The nodes keep their own fields; only their own @context goes, because the graph carries it once.
+ */
+const oneGraph = (nodes) => {
+    const graph = nodes.filter(Boolean).map((n) => { const c = { ...n }; delete c['@context']; return c; });
+    return [{ '@context': 'https://schema.org', '@graph': graph }];
+};
+
 /** schema.org Event for one of this site's events. */
 function eventJsonLd(e, config) {
     const base = String(config.baseUrl).replace(/\/+$/, '');
@@ -70,7 +79,7 @@ function createPublicPageViews(ctx) {
             body: raw(views.home({ upcoming: rows, now })),
             description: 'Streams, events and reminders across OpenVibe on one calendar: schedule a stream, get reminded, and subscribe in your own calendar app.',
             // Every row on the page is a dated, public event the reader can open: that is exactly one Event node.
-            jsonLd: [...homeJsonLd(config), ...rows.map((e) => eventJsonLd(e, config))],
+            jsonLd: oneGraph([...homeJsonLd(config), ...rows.map((e) => eventJsonLd(e, config)), seo.jsonLd.organization()]),
         };
     }
 

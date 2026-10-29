@@ -7,8 +7,12 @@ const assert = require('assert');
 const { boot, check, done } = require('./helpers/boot');
 const { assetVersion } = require('../server/render/layout');
 
-function jsonLd(html) {
+// One JSON-LD script per page: every node lives in the page's @graph.
+function scripts(html) {
     return [...String(html).matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+}
+function jsonLd(html) {
+    return scripts(html).flatMap((x) => (Array.isArray(x['@graph']) ? x['@graph'] : [x]));
 }
 
 (async () => {
@@ -26,6 +30,7 @@ function jsonLd(html) {
         assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=60');
         assert.strictEqual(r.headers.get('vary'), 'Cookie');
         for (const marker of ['id="td-home"', 'id="td-upcoming"', 'id="main"', '<noscript><nav', '<footer id="ov-footer"', 'Public stream']) assert.ok(r.text.includes(marker), marker);
+        assert.strictEqual(scripts(r.text).length, 1, 'the page carries exactly one JSON-LD script');
         const types = jsonLd(r.text).map((x) => x['@type']);
         assert.ok(types.includes('WebSite'), types.join(','));
         assert.ok(types.includes('WebApplication'), types.join(','));

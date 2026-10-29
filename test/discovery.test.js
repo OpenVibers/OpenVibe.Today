@@ -61,7 +61,10 @@ const PRIVATE = ['/auth/', '/api/', '/me', '/brief', '/schedule', '/internal'];
 
         await check('home page: WebSite, WebApplication and WebPage JSON-LD', async () => {
             const r = await t.get('/');
-            const blocks = [...r.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+            // One JSON-LD script per page: every node lives in the page's @graph.
+            const scripts = [...r.text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+            assert.strictEqual(scripts.length, 1, 'the page carries exactly one JSON-LD script');
+            const blocks = scripts.flatMap((x) => (Array.isArray(x['@graph']) ? x['@graph'] : [x]));
             const types = blocks.map((b) => b['@type']);
             assert.ok(types.includes('WebSite'), types.join(','));
             assert.ok(types.includes('WebApplication'), types.join(','));
