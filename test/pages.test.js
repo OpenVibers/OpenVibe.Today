@@ -114,10 +114,19 @@ function jsonLd(html) {
 
     await check('/brief is 401 signed out and renders sections signed in', async () => {
         assert.strictEqual((await t.get('/brief')).status, 401);
+        // "Later today" needs an event still ahead on this UTC day. The /me check's event sits 4 h ahead, which is
+        // tomorrow after 20:00 UTC, so this check makes its own: halfway to midnight (at most 4 h, at least 1 min). In
+        // the day's last two minutes it waits for midnight first.
+        let left = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1) - Date.now();
+        if (left < 120_000) { await new Promise((ok) => setTimeout(ok, left + 1000)); left = 86_400_000; }
+        const startsAt = new Date(Date.now() + Math.min(4 * 60 * 60_000, Math.max(60_000, Math.floor(left / 2)))).toISOString();
+        const later = await t.get('/api/v1/events', { as: alice, json: { kind: 'stream', title: 'Brief item', starts_at: startsAt, tz: 'UTC' } });
+        assert.strictEqual(later.status, 201);
         const r = await t.get('/brief', { as: alice });
         assert.strictEqual(r.status, 200);
         assert.ok(r.text.includes('id="td-brief"'));
-        assert.ok(r.text.includes('Later today'));
+        assert.ok(r.text.includes('Later today'), 'the brief has a "Later today" section');
+        assert.ok(r.text.includes('Brief item'), 'with the event still ahead today');
     });
 
     await check('/schedule: signed out 401; the plain form POSTs and redirects to /e/:id', async () => {
