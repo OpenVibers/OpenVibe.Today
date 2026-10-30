@@ -167,3 +167,15 @@ html.ov-motion .td-demo-toast { animation: td-toast 4.5s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) { .td-pill.is-live::before, .td-demo-toast { animation: none !important; } .td-ring-dot { animation: none !important; } }
 html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ring-dot { animation: none !important; }
+
+/* Touch targets on phones (fleet audit 2026-10-29): the touch-only hit area for this group. Nothing moves with a mouse. */
+@media (pointer: coarse) {
+  /* The hero's chips: a finger needs a 44px tall pill. */
+  .sc-room-chips a { min-height: 44px; display: inline-flex; align-items: center; }
+  /* The scene card's own link: a vertical-only hit area, the width stays as it is. */
+  a.sc-scene-go { position: relative; }
+  a.sc-scene-go::after { content: ''; position: absolute; left: 0; right: 0; top: -2px; bottom: -2px; }
+  /* The section's "more" link: the same, a vertical-only hit area. */
+  a.td-more { position: relative; }
+  a.td-more::after { content: ''; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; }
+}
