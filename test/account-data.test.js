@@ -8,8 +8,10 @@
 const assert = require('assert');
 const http = require('http');
 const { boot, check, done } = require('./helpers/boot');
-const { createNetworkSender } = require('openvibe-sdk/account-data');
+const { createNetworkSender, uncovered } = require('openvibe-sdk/account-data');
 const { signDeliveryHeaders } = require('openvibe-sdk/events');
+const { TABLES } = require('../server/identity/account-data');
+const { testDb } = require('./helpers/db');
 
 const A = 'usr_01JZ0000000000000000000AAA';
 const B = 'usr_01JZ0000000000000000000BBB';
@@ -40,6 +42,17 @@ async function startNetworkStub() {
 }
 
 (async () => {
+    await check('every table that names a person is covered or exempted with a reason', async () => {
+        const d = await testDb();
+        try {
+            const missing = await uncovered(d.db, {
+                tables: TABLES,
+                exempt: {account_data_events: 'the ledger of requests itself: which export and deletion today applied'},
+            });
+            assert.deepStrictEqual(missing, [], `a table with a person column is neither covered nor exempted: ${missing.join(', ')}`);
+        } finally { await d.close(); }
+    });
+
     const stub = await startNetworkStub();
     const sender = createNetworkSender({ networkInternalUrl: stub.url, clientId: 'today', clientSecret: 'today-secret' });
     // The mock Network's people use generated subjects; the account events name fixed fixtures, so the rows are
