@@ -133,8 +133,12 @@ function home({ upcoming = [], now = Date.now() } = {}) {
             { value: channels.size, label: 'channels' },
         ].filter((p) => p.value),
     });
-    const coming = `<section class="td-coming" id="td-upcoming" aria-labelledby="td-coming-h"><div class="td-head-row"><h2 id="td-coming-h">Coming up</h2><a class="td-more" href="/developers#feeds">Subscribe${kit.icon('chevron')}</a></div>
-${days(upcoming, { now, empty: 'Nothing is scheduled yet. Schedule a stream and it shows here, on your channel and in your followers’ calendars.' })}</section>`;
+    // Real first (the owner, 10-31: empty sections made the rooms look unfinished): Coming up shows only with something in
+    // it; an empty calendar is one short "be the first" row after the scenes.
+    const coming = upcoming.length ? `<section class="td-coming" id="td-upcoming" aria-labelledby="td-coming-h"><div class="td-head-row"><h2 id="td-coming-h">Coming up</h2><a class="td-more" href="/developers#feeds">Subscribe${kit.icon('chevron')}</a></div>
+${days(upcoming, { now })}</section>` : '';
+    const beFirst = upcoming.length ? '' : `<section class="td-coming td-first" aria-labelledby="td-first-h"><h2 id="td-first-h">Be the first</h2>
+<ul class="td-first-list"><li><b>Schedule the first stream</b><span>It shows here, on your channel and in your followers’ calendars, and anyone can set a reminder for it.</span><a href="/schedule">Schedule a stream</a></li></ul></section>`;
     const scenesHTML = `<section class="sc-room-scenes" aria-label="What you can do">${scenes.map((x, i) => `<article class="sc-scene${i % 2 ? ' is-flip' : ''}" data-ov-reveal">
 <div class="sc-scene-text"><h2>${esc(x.title)}</h2>${x.text ? `<p>${esc(x.text)}</p>` : ''}${x.action ? `<a class="sc-scene-go" href="${esc(x.action.href)}">${esc(x.action.label)}${kit.icon('chevron')}</a>` : ''}</div>
 <div class="sc-scene-stage">${x.html}</div></article>`).join('')}</section>`;
@@ -148,7 +152,7 @@ ${days(upcoming, { now, empty: 'Nothing is scheduled yet. Schedule a stream and 
         ['Can I see this in my own calendar app?', 'Yes. Every channel has a public calendar feed, and your agenda has a private one. Subscribe in any app that reads iCalendar (.ics); updates and cancellations follow.'],
         ['Who sees what I schedule?', 'A public stream is on your channel, here and in feeds. A followers-only one is seen only by the people who follow you. Followers hear about at most three new schedules from you a day.'],
     ] });
-    const body = hero.replace(/<\/div>\s*$/, `${coming}${scenesHTML}${explore}${faq}</div>`);
+    const body = hero.replace(/<\/div>\s*$/, `${coming}${scenesHTML}${beFirst}${explore}${faq}</div>`);
     return `<div class="td-wrap" id="td-home">${body}</div>`;
 }
 

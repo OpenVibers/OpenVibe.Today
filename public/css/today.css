@@ -179,3 +179,9 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
   a.td-more { position: relative; }
   a.td-more::after { content: ''; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; }
 }
+
+/* Be the first (10-31): an empty calendar is one short row after the scenes, never an empty box up top. */
+.td-first-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
+.td-first-list li { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--room-accent) 45%, var(--border, #2c3d5c)); }
+.td-first-list span { color: var(--text-secondary, #a8b3c4); font-size: 14px; line-height: 1.45; }
+.td-first-list a { justify-self: start; margin-top: 4px; font-weight: 700; color: var(--room-strong, var(--room-accent)); }
