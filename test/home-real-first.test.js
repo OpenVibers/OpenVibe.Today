@@ -7,7 +7,7 @@ const path = require('path');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'server/views/index.js'), 'utf8');
 assert.match(src, /const coming = upcoming\.length \? `<section class="td-coming" id="td-upcoming"/, 'Coming up only with something in it');
-assert.match(src, /\$\{coming\}\$\{scenesHTML\}\$\{beFirst\}\$\{explore\}\$\{faq\}/, 'the missing comes after the scenes');
+assert.match(src, /\$\{coming\}\$\{holidaysWeek\(holidays, now\)\}\$\{scenesHTML\}\$\{beFirst\}\$\{explore\}\$\{faq\}/, 'the real first, the missing after the scenes');
 assert.ok(!src.includes('Nothing is scheduled yet'), 'no empty box under the hero');
 
 const views = require('../server/views');

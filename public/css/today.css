@@ -185,3 +185,13 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
 .td-first-list li { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--room-accent) 45%, var(--border, #2c3d5c)); }
 .td-first-list span { color: var(--text-secondary, #a8b3c4); font-size: 14px; line-height: 1.45; }
 .td-first-list a { justify-self: start; margin-top: 4px; font-weight: 700; color: var(--room-strong, var(--room-accent)); }
+
+/* Holidays this week (10-31): one line per holiday and day, the countries that keep it, most-shared first. */
+.td-hol-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.td-hol-day { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: start; }
+.td-hol-date { font-weight: 800; color: var(--room-strong, var(--room-accent)); padding-top: 9px; }
+.td-hol-day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.td-hol-day a { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 12px; border-radius: 12px; background: var(--bg-card, var(--ovk-panel, #121826)); text-decoration: none; color: inherit; }
+.td-hol-day a:hover { background: var(--bg-hover, var(--ovk-panel-2, #1a2233)); }
+.td-hol-day span { color: var(--text-secondary, #a8b3c4); font-size: 14px; }
+@media (max-width: 560px) { .td-hol-day { grid-template-columns: 1fr; gap: 4px; } .td-hol-date { padding-top: 0; } }

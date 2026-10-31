@@ -72,11 +72,13 @@ function createPublicPageViews(ctx) {
 
     async function home() {
         const now = s.now();
-        const rows = await events.listPublic({ from: new Date(now - 2 * 60 * 60_000).toISOString(), to: new Date(now + 60 * DAY).toISOString(), limit: 20 });
+        const HOLIDAYS = ['holiday', 'observance'];
+        const rows = await events.listPublic({ from: new Date(now - 2 * 60 * 60_000).toISOString(), to: new Date(now + 60 * DAY).toISOString(), limit: 20, exceptKinds: HOLIDAYS });
+        const holidays = await events.listPublic({ from: new Date(now - DAY).toISOString(), to: new Date(now + 8 * DAY).toISOString(), limit: 200, kinds: ['holiday'] });
         return {
             index: true, cache: PUBLIC_CACHE, agent: true,
             title: null,
-            body: raw(views.home({ upcoming: rows, now })),
+            body: raw(views.home({ upcoming: rows, holidays, now })),
             description: 'Streams, events and reminders across OpenVibe on one calendar: schedule a stream, get reminded, and subscribe in your own calendar app.',
             // Every row on the page is a dated, public event the reader can open: that is exactly one Event node.
             jsonLd: oneGraph([...homeJsonLd(config), ...rows.map((e) => eventJsonLd(e, config)), seo.jsonLd.organization()]),

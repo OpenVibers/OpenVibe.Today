@@ -100,7 +100,35 @@ function ring(rows, now) {
 </div>`;
 }
 
-function home({ upcoming = [], now = Date.now() } = {}) {
+/**
+ * The week's public holidays, one line per holiday and day: its English name and the countries that keep it, the ones
+ * most countries share first. The same for every visitor (the page is cached), so no country is guessed.
+ */
+function holidaysWeek(rows, now) {
+    const groups = new Map();
+    for (const e of rows) {
+        const day = dayKey(e.starts_at, e.tz);
+        const key = `${day}|${e.title}`;
+        const cc = String(e.source_id || '').split(':')[1] || '';
+        const g = groups.get(key) || { day, title: e.title, at: e.starts_at, tz: e.tz, countries: [], id: e.id };
+        if (cc && !g.countries.includes(cc)) g.countries.push(cc);
+        groups.set(key, g);
+    }
+    if (!groups.size) return '';
+    let names = null;
+    const name = (cc) => { try { names = names || new Intl.DisplayNames(['en'], { type: 'region' }); return names.of(cc) || cc; } catch { return cc; } };
+    const byDay = new Map();
+    for (const g of groups.values()) { const list = byDay.get(g.day) || []; list.push(g); byDay.set(g.day, list); }
+    const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(0, 7);
+    return `<section class="td-coming td-holidays" id="td-holidays" aria-labelledby="td-hol-h"><div class="td-head-row"><h2 id="td-hol-h">Holidays this week</h2><a class="td-more" href="https://date.nager.at" rel="noopener">From Nager.Date${kit.icon('chevron')}</a></div>
+<ol class="td-hol-days">${days.map(([, list]) => `<li class="td-hol-day"><span class="td-hol-date">${esc(dayLabel(list[0].at, list[0].tz, now))}</span><ul>${list.sort((a, b) => b.countries.length - a.countries.length || a.title.localeCompare(b.title)).map((g) => {
+        const all = g.countries.map(name).sort();
+        const shown = all.length > 4 ? `${all.slice(0, 3).join(', ')} and ${all.length - 3} more` : all.join(', ');
+        return `<li><a href="/e/${esc(g.id)}"><b>${esc(g.title)}</b><span title="${esc(all.join(', '))}">${esc(shown)}</span></a></li>`;
+    }).join('')}</ul></li>`).join('')}</ol></section>`;
+}
+
+function home({ upcoming = [], holidays = [], now = Date.now() } = {}) {
     const channels = new Set(upcoming.map((e) => e.channel).filter(Boolean));
     const live = upcoming.filter((e) => e.status === 'live');
     const scenes = [
@@ -152,7 +180,7 @@ ${days(upcoming, { now })}</section>` : '';
         ['Can I see this in my own calendar app?', 'Yes. Every channel has a public calendar feed, and your agenda has a private one. Subscribe in any app that reads iCalendar (.ics); updates and cancellations follow.'],
         ['Who sees what I schedule?', 'A public stream is on your channel, here and in feeds. A followers-only one is seen only by the people who follow you. Followers hear about at most three new schedules from you a day.'],
     ] });
-    const body = hero.replace(/<\/div>\s*$/, `${coming}${scenesHTML}${beFirst}${explore}${faq}</div>`);
+    const body = hero.replace(/<\/div>\s*$/, `${coming}${holidaysWeek(holidays, now)}${scenesHTML}${beFirst}${explore}${faq}</div>`);
     return `<div class="td-wrap" id="td-home">${body}</div>`;
 }
 
