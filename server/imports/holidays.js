@@ -71,6 +71,12 @@ function nextDate(date) {
     return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
 }
 
+/** A country's name in English ("PL" → "Poland"); the code itself when the runtime has no name for it. */
+let regionNames = null;
+function countryName(cc) {
+    try { regionNames = regionNames || new Intl.DisplayNames(['en'], { type: 'region' }); return regionNames.of(cc) || cc; } catch { return cc; }
+}
+
 /** The locale-independent key that keeps the same observance one row when its display name changes. */
 function nameKey(name) {
     return String(name || '')
@@ -99,14 +105,16 @@ function recordsFor(payload, { country, year, zone = zoneOf(country) } = {}) {
         const types = Array.isArray(item.types) ? item.types.map((t) => String(t).toLowerCase()) : [String(item.type || '').toLowerCase()];
         const observance = types.includes('observance') && !types.includes('public');
         const name = String(item.localName || item.name || 'Holiday').trim().slice(0, 200) || 'Holiday';
+        const english = String(item.name || name).trim().slice(0, 200) || name;
         const cc = String(item.countryCode || countryCode).toUpperCase();
+        const where = countryName(cc);
         out.push({
             source: 'holidays',
             source_id: 'holiday:' + cc + ':' + item.date + ':' + nameKey(name),
             source_kind: observance ? 'observance' : 'holiday',
             kind: observance ? 'observance' : 'holiday',
-            title: name,
-            description: (observance ? 'An observance in ' : 'A public holiday in ') + cc + ', from the Nager.Date open dataset.',
+            title: english,
+            description: (english !== name ? name + ': ' : '') + (observance ? 'an observance in ' : 'a public holiday in ') + where + ', from the Nager.Date open dataset.',
             starts_at: start.toISOString(),
             ends_at: end.toISOString(),
             tz: zone,

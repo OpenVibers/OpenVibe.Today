@@ -131,18 +131,20 @@ function fakeFetch({ live = LIVE, plans = PLANS, quests = QUESTS, failLive = fal
             assert.ok(!bySource('fun', 'quest:already-done'), 'completed quests are history');
             assert.ok(!bySource('fun', 'quest:hidden-quest'), 'hidden quests never enter');
 
-            const de = events.find((e) => e.source === 'holidays' && e.title === 'Erster Weihnachtstag');
+            const de = events.find((e) => e.source === 'holidays' && String(e.source_id).startsWith('holiday:DE:2026-12-25:'));
             assert.ok(de);
+            assert.strictEqual(de.title, 'Christmas Day', 'titled in English');
+            assert.match(de.description, /^Erster Weihnachtstag: a public holiday in Germany/, 'the local name and the country in words');
             assert.strictEqual(de.kind, 'holiday');
             assert.strictEqual(de.tz, 'Europe/Berlin');
             assert.strictEqual(de.starts_at, '2026-12-24T23:00:00.000Z', 'local midnight in CET');
             assert.strictEqual(de.ends_at, '2026-12-25T23:00:00.000Z');
             assert.strictEqual(de.url, 'https://date.nager.at/api/v3/PublicHolidays/2026/DE');
 
-            const summer = events.find((e) => e.source === 'holidays' && e.title === 'Sommerfest');
+            const summer = events.find((e) => e.source === 'holidays' && String(e.source_id).startsWith('holiday:DE:2026-06-03:'));
             assert.strictEqual(summer.starts_at, '2026-06-02T22:00:00.000Z', 'local midnight in CEST');
 
-            const us = events.find((e) => e.source === 'holidays' && e.title === 'Christmas Day');
+            const us = events.find((e) => e.source === 'holidays' && String(e.source_id).startsWith('holiday:US:2026-12-25:'));
             assert.strictEqual(us.starts_at, '2026-12-25T05:00:00.000Z', 'New York midnight is 05:00 UTC');
             assert.strictEqual(us.tz, 'America/New_York');
         });

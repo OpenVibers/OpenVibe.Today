@@ -88,12 +88,14 @@ function createEventsStore({ s, log = console }) {
         return row;
     }
 
-    async function listPublic({ channel = null, from, to, limit = 50 } = {}) {
-        const args = [from, to, Math.min(100, Math.max(1, Number(limit) || 50))];
+    async function listPublic({ channel = null, from, to, limit = 50, kinds = null, exceptKinds = null } = {}) {
+        const args = [from, to, Math.min(200, Math.max(1, Number(limit) || 50))];
         // A stream that is live now stays on the public list however long ago it started; everything else is
         // bounded by the window.
         let where = "visibility = 'public' AND status <> 'cancelled' AND ((starts_at >= $1::timestamptz AND starts_at <= $2::timestamptz) OR (status = 'live' AND starts_at <= $2::timestamptz))";
         if (channel) { args.push(channel); where += ` AND LOWER(channel) = LOWER($${args.length})`; }
+        if (Array.isArray(kinds) && kinds.length) { args.push(kinds); where += ` AND kind = ANY($${args.length}::text[])`; }
+        if (Array.isArray(exceptKinds) && exceptKinds.length) { args.push(exceptKinds); where += ` AND kind <> ALL($${args.length}::text[])`; }
         const rows = await db.many(
             `SELECT * FROM today_events WHERE ${where} ORDER BY starts_at ASC, id ASC LIMIT $3`,
             args,
