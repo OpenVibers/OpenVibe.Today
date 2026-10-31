@@ -24,12 +24,16 @@ function createAgenda({ s, follows }) {
             unavailable = true;
         }
         const rows = await db.many(
-            `SELECT * FROM today_events e
+            `SELECT e.*, (e.owner_subject = ANY($4::text[])
+                    OR EXISTS (SELECT 1 FROM today_channels c WHERE LOWER(c.username) = LOWER(e.channel) AND c.subject = ANY($4::text[]))) AS followed
+             FROM today_events e
              WHERE e.starts_at >= $1::timestamptz AND e.starts_at <= $2::timestamptz AND e.status <> 'cancelled'
                AND (e.owner_subject = $3
                     OR EXISTS (SELECT 1 FROM today_reminders r WHERE r.subject = $3 AND r.event_id = e.id)
-                    OR (e.owner_subject = ANY($4::text[]) AND e.visibility IN ('public', 'followers')))
-             ORDER BY e.starts_at ASC, e.id ASC`,
+                    OR (e.owner_subject = ANY($4::text[]) AND e.visibility IN ('public', 'followers'))
+                    OR EXISTS (SELECT 1 FROM today_channels c WHERE LOWER(c.username) = LOWER(e.channel)
+                               AND c.subject = ANY($4::text[]) AND e.visibility IN ('public', 'followers')))
+             ORDER BY followed DESC, e.starts_at ASC, e.id ASC`,
             [from, to, subject, followed],
         );
         const reminded = new Set((await db.many('SELECT event_id FROM today_reminders WHERE subject = $1', [subject])).map((r) => r.event_id));
@@ -48,13 +52,17 @@ function createAgenda({ s, follows }) {
         if (token) followed = (await follows.forSubject(subject, token)).follows;
         else followed = follows.peek(subject);
         return await db.many(
-            `SELECT * FROM today_events e
+            `SELECT e.*, (e.owner_subject = ANY($5::text[])
+                    OR EXISTS (SELECT 1 FROM today_channels c WHERE LOWER(c.username) = LOWER(e.channel) AND c.subject = ANY($5::text[]))) AS followed
+             FROM today_events e
              WHERE e.starts_at >= $1::timestamptz AND e.starts_at <= $2::timestamptz
                AND (e.status <> 'cancelled' OR e.updated_at >= $3::timestamptz)
                AND (e.owner_subject = $4
                     OR EXISTS (SELECT 1 FROM today_reminders r WHERE r.subject = $4 AND r.event_id = e.id)
-                    OR (e.owner_subject = ANY($5::text[]) AND e.visibility IN ('public', 'followers')))
-             ORDER BY e.starts_at ASC, e.id ASC`,
+                    OR (e.owner_subject = ANY($5::text[]) AND e.visibility IN ('public', 'followers'))
+                    OR EXISTS (SELECT 1 FROM today_channels c WHERE LOWER(c.username) = LOWER(e.channel)
+                               AND c.subject = ANY($5::text[]) AND e.visibility IN ('public', 'followers')))
+             ORDER BY followed DESC, e.starts_at ASC, e.id ASC`,
             [from, to, new Date(now - 7 * 24 * 60 * 60_000).toISOString(), subject, followed],
         );
     }

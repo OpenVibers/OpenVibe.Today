@@ -45,7 +45,12 @@ const { boot, check, done } = require('./helpers/boot');
         assert.ok(!ids.includes(unfollowed.id), 'not followed and not reminded');
         assert.strictEqual(b.events.find((e) => e.id === own.id).own, true);
         assert.strictEqual(b.events.find((e) => e.id === reminded.id).reminded, true);
-        assert.deepStrictEqual(ids, [...ids].sort((x, y) => {
+        // Followed channels come first, then everything is soonest first. Carol's two events start after alice's
+        // own one, so this also proves the agenda is not merely sorting by starts_at.
+        const followedIds = new Set([followed.id, followedPrivate.id]);
+        assert.ok(ids.slice(0, 2).every((id) => followedIds.has(id)), `followed first: ${ids.join(', ')}`);
+        const rest = ids.slice(2);
+        assert.deepStrictEqual(rest, [...rest].sort((x, y) => {
             const a = b.events.find((e) => e.id === x); const c = b.events.find((e) => e.id === y);
             return new Date(a.starts_at) - new Date(c.starts_at);
         }));

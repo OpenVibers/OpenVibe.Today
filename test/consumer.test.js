@@ -33,6 +33,24 @@ const ended = (id) => ({ event_id: 'evt_01M61F7R3WXM5T5ET9CRGNHEP2', event_type:
         assert.strictEqual(await t.ctx.s.db.value('SELECT COUNT(*)::int AS n FROM today_processed WHERE event_id = $1', [started(id).event_id]), 1);
     });
 
+    await check('the bus remembers the channel\'s Network subject and gives it to an imported on-now row', async () => {
+        await t.ctx.s.db.exec(
+            `INSERT INTO today_events (id, owner_subject, kind, channel, title, starts_at, tz, status, visibility, source, source_id, source_kind)
+             VALUES ('tev_01JZ0000000000000000001', 'chan:alice', 'stream', 'alice', 'Imported now', now(), 'UTC', 'live', 'public', 'live', 'stream:7', 'on_now')`,
+        );
+        const event = {
+            ...started(id),
+            event_id: 'evt_01M61F7R3WXM5T5ET9CRGNHEP3',
+            payload: { ...started(id).payload, channel: { username: 'alice', subject: { type: 'user', id: alice.subject } } },
+        };
+        const r = await post(bodyOf(event));
+        assert.strictEqual(r.status, 200, r.text);
+        const mapping = await t.ctx.s.db.maybe('SELECT * FROM today_channels WHERE username = $1', ['alice']);
+        assert.strictEqual(mapping.subject, alice.subject);
+        const imported = await t.ctx.s.db.maybe("SELECT * FROM today_events WHERE source = 'live' AND source_id = 'stream:7'");
+        assert.strictEqual(imported.owner_subject, alice.subject, 'the public-list row learns its subject');
+    });
+
     await check('a replayed delivery changes nothing', async () => {
         const b = bodyOf(started(id));
         const r = await post(b);
