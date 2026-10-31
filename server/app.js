@@ -10,8 +10,8 @@
  *   /auth/*                                                       Network SSO with PKCE (auth/sso.js)
  *   /api/health, /api/ready, /release.json, /metrics              (loopback only)
  *
- * The jobs (outbox publisher, reminders, daily brief) are made here but started by server/index.js (and never
- * under TODAY_DRILL); tests drive them explicitly.
+ * The jobs (outbox publisher, import refresh, reminders, daily brief) are made here but started by server/index.js
+ * (and never under TODAY_DRILL); tests drive them explicitly.
  */
 const path = require('path');
 const express = require('express');
@@ -40,6 +40,7 @@ const { createFeeds } = require('./feeds');
 const { createFollows } = require('./identity/follows');
 const { createAgenda } = require('./agenda');
 const { createBrief } = require('./brief');
+const { createImports } = require('./imports');
 const { createNotifier } = require('./notifications');
 const { createReminders } = require('./reminders');
 const { createNetworkSender } = require('openvibe-sdk/account-data');
@@ -71,6 +72,7 @@ async function createApp(opts = {}) {
     const notifier = createNotifier({ config, s, fetchImpl, log });
     const reminders = createReminders({ config, s, events, notifier, log });
     const publisher = createPublisher({ config, s, fetchImpl, log });
+    const imports = createImports({ config, s, fetchImpl, log, now: s.now });
 
     // Account export and deletion (ADR-033). The sender posts to Network's internal export/deletion routes with
     // this service's own client-credentials token; a test injects a stand-in through opts.accountSend.
@@ -82,7 +84,7 @@ async function createApp(opts = {}) {
 
     const ctx = {
         config, s, keys, sso, principal, events, feeds, follows, agenda, brief, notifier, reminders, publisher,
-        accountData, accountSend, consumer, log,
+        imports, accountData, accountSend, consumer, log,
     };
 
     const app = express();

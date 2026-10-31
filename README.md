@@ -193,8 +193,18 @@ npm start                # PORT 5100, loopback; DATABASE_URL or an embedded PGli
 The tests boot the app with a mock Network and Events: events (validation, idempotency, cap, followers, cross-site,
 transactional outbox), ICS (folding, escaping, cancellation window, token rotation), the consumer (signed, replay, bad
 signature), the outbox (fixed id, backoff, restart), reminders (one notification, concurrency, cancelled), agenda
-(follows and Network down), brief (sections, Rundown failure, one per day), pages, sign-in, account export/deletion
-and discovery.
+(follows and Network down), imports (idempotent, time zones, source links, retirement, no private fields), brief
+(sections, Rundown failure, one per day), pages, sign-in, account export/deletion and discovery.
+
+## Imports
+
+`server/imports/` fills the public calendar from the services around the network: the streams on now on Live, public
+Fun plans and accepted IRL quests, Nager.Date holidays per country, and (when `TODAY_IMPORTS_EVENTS_TOPICS` names
+public people-facing topics) public events from OpenVibe.Events. Upcoming streams are not imported: the schedule card
+in Live's studio writes them into this service's own table. The job runs at boot and every
+`TODAY_IMPORTS_INTERVAL_MS`, is off under `TODAY_DRILL`, and `npm run imports:run` runs one pass by hand. Each row
+keeps its `source`/`source_id`, its source URL and its time zone; a second run updates the same row, and a source
+item that disappears retires its row.
 
 ## Deploy
 

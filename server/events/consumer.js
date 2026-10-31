@@ -37,12 +37,31 @@ function createEventsConsumer({ config, s, accountData, accountSend = null, now 
         const payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
         const username = payload.channel && typeof payload.channel.username === 'string' ? payload.channel.username : null;
         if (!username) return 'ignored:payload';
+        const subjectId = (payload.channel && payload.channel.subject && typeof payload.channel.subject.id === 'string' && payload.channel.subject.id)
+            || (event.actor && typeof event.actor.id === 'string' && event.actor.id) || null;
         const atIso = new Date(now()).toISOString();
         return await s.tx(async () => {
             const inserted = await record(event.event_id, atIso);
             if (!inserted) return { duplicate: true, outcome: null };
+            // The public Live list names a channel; the bus carries its Network subject. Remember the pair so a
+            // follower's agenda can put an imported "on now" row first (server/agenda.js).
+            if (subjectId && /^usr_[0-9A-HJKMNP-TV-Z]{26}$/.test(subjectId)) {
+                await db.exec(
+                    `INSERT INTO today_channels (username, subject, updated_at) VALUES ($1, $2, $3::timestamptz)
+                     ON CONFLICT (username) DO UPDATE SET subject = EXCLUDED.subject, updated_at = EXCLUDED.updated_at`,
+                    [username, subjectId, atIso],
+                );
+            }
             if (event.event_type === 'live.stream.started') {
                 const at = new Date(now()).toISOString();
+                // An on-now row imported from the public list already exists: give it the subject the bus knows.
+                if (subjectId) {
+                    await db.exec(
+                        `UPDATE today_events SET owner_subject = $1, seq = seq + 1, updated_at = $2::timestamptz
+                         WHERE source = 'live' AND LOWER(channel) = LOWER($3) AND status = 'live' AND owner_subject <> $1`,
+                        [subjectId, atIso, username],
+                    );
+                }
                 const row = await db.maybe(
                     `SELECT * FROM today_events
                      WHERE LOWER(channel) = LOWER($1) AND status = 'scheduled'
@@ -54,7 +73,15 @@ function createEventsConsumer({ config, s, accountData, accountSend = null, now 
                 await db.exec("UPDATE today_events SET status = 'live', seq = seq + 1, updated_at = $1::timestamptz WHERE id = $2", [atIso, row.id]);
                 return { duplicate: false, outcome: 'live', event_id: row.id };
             }
-            // live.stream.ended
+            // live.stream.ended: the imported on-now row ends with the stream it names (the public list catches up
+            // on its own too, but the bus is immediate).
+            const streamId = payload.stream_id == null ? null : String(payload.stream_id);
+            if (streamId) {
+                await db.exec(
+                    "UPDATE today_events SET status = 'done', seq = seq + 1, updated_at = $1::timestamptz WHERE source = 'live' AND source_id = $2 AND status = 'live'",
+                    [atIso, 'stream:' + streamId],
+                );
+            }
             const row = await db.maybe(
                 "SELECT * FROM today_events WHERE LOWER(channel) = LOWER($1) AND status = 'live' ORDER BY starts_at DESC, updated_at DESC LIMIT 1",
                 [username],

@@ -36,6 +36,10 @@ function wire(row) {
         status: row.status,
         visibility: row.visibility,
         url: row.url || null,
+        source: row.source || null,
+        source_id: row.source_id || null,
+        source_url: row.source_url || null,
+        source_kind: row.source_kind || null,
         seq: Number(row.seq) || 0,
         created_at: iso(row.created_at),
         updated_at: iso(row.updated_at),
@@ -86,7 +90,9 @@ function createEventsStore({ s, log = console }) {
 
     async function listPublic({ channel = null, from, to, limit = 50 } = {}) {
         const args = [from, to, Math.min(100, Math.max(1, Number(limit) || 50))];
-        let where = "visibility = 'public' AND status <> 'cancelled' AND starts_at >= $1::timestamptz AND starts_at <= $2::timestamptz";
+        // A stream that is live now stays on the public list however long ago it started; everything else is
+        // bounded by the window.
+        let where = "visibility = 'public' AND status <> 'cancelled' AND ((starts_at >= $1::timestamptz AND starts_at <= $2::timestamptz) OR (status = 'live' AND starts_at <= $2::timestamptz))";
         if (channel) { args.push(channel); where += ` AND LOWER(channel) = LOWER($${args.length})`; }
         const rows = await db.many(
             `SELECT * FROM today_events WHERE ${where} ORDER BY starts_at ASC, id ASC LIMIT $3`,

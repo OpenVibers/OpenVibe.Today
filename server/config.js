@@ -71,6 +71,25 @@ function load(env = process.env) {
             timeoutMs: Math.max(300, int(env.TODAY_LIVE_TIMEOUT_MS, 2500)),
         },
 
+        // Imports from the public services around the network (server/imports/). Off under TODAY_DRILL and when
+        // TODAY_IMPORTS=0. Country codes are Nager.Date's; an empty events topic list leaves the Events pull off.
+        imports: {
+            enabled: env.TODAY_IMPORTS !== '0' && env.TODAY_IMPORTS !== 'false',
+            intervalMs: Math.max(60_000, int(env.TODAY_IMPORTS_INTERVAL_MS, 15 * 60_000)),
+            timeoutMs: Math.max(500, int(env.TODAY_IMPORTS_TIMEOUT_MS, 8000)),
+            live: { url: trim(env.OV_LIVE_URL || 'https://openvibe.live') },
+            fun: { url: trim(env.OV_FUN_URL || 'https://openvibe.fun') },
+            holidays: {
+                countries: String(env.TODAY_HOLIDAY_COUNTRIES || 'US,GB,CA,DE,FR,ES,IT,NL,BE,AT,CH,SE,NO,DK,FI,PL,PT,IE,AU,NZ,JP,BR,IN,MX,CZ')
+                    .split(',').map((x) => x.trim().toUpperCase()).filter((x) => /^[A-Z]{2}$/.test(x)),
+            },
+            events: {
+                url: trim(env.OV_EVENTS_URL || env.TODAY_EVENTS_URL || ''),
+                topics: String(env.TODAY_IMPORTS_EVENTS_TOPICS || '').split(',').map((x) => x.trim()).filter(Boolean),
+                scope: env.TODAY_IMPORTS_EVENTS_SCOPE || 'events.event.read',
+            },
+        },
+
         brief: {
             hourUtc: Math.min(23, Math.max(0, int(env.TODAY_BRIEF_HOUR_UTC, 6))),
             activeDays: Math.max(1, int(env.TODAY_BRIEF_ACTIVE_DAYS, 30)),

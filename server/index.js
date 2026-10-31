@@ -19,6 +19,7 @@ function createLifecycle({ server, ctx, exit, signals, timers = [], extra = [] }
             () => { for (const t of timers) clearInterval(t); },
             () => ctx.keys.client.stop(),
             () => ctx.publisher.stop(),
+            () => ctx.imports.stop(),
             () => ctx.reminders.stop(),
             () => ctx.brief.stop(),
             async () => { clearInterval(ctx.telemetryTick); if (ctx.retention) await ctx.retention.stop(); if (ctx.telemetry) await ctx.telemetry.stop(); },
@@ -49,6 +50,7 @@ async function start() {
 
     // Jobs. Each refuses to start under TODAY_DRILL (or when it is not configured); tests call their runOnce().
     ctx.publisher.start();
+    ctx.imports.start();
     ctx.reminders.start();
     ctx.brief.start();
 

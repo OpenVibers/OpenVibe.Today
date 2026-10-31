@@ -20,6 +20,9 @@ const TABLES = [
     { table: 'today_feeds', subject: 'subject', value: (usr) => usr, file: 'feeds.json', columns: ['subject', 'created_at'], erase: 'delete' },
     { table: 'today_briefs', subject: 'subject', value: (usr) => usr, file: 'briefs.json', erase: 'delete' },
     { table: 'today_idempotency', subject: 'subject', value: (usr) => usr, file: 'idempotency.json', erase: 'delete' },
+    // The public Live username → Network subject map the import job uses to put a followed channel first. It is a
+    // public channel fact, not a private one, so it is erased with the person and not exported.
+    { table: 'today_channels', subject: 'subject', value: (usr) => usr, file: null, erase: 'delete' },
 ];
 
 async function extraErase(t) {
