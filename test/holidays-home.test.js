@@ -17,7 +17,7 @@ assert.match(pages, /kinds: \['holiday'\]/, 'and reads them on their own');
 
 const now = Date.parse('2026-10-31T12:00:00Z');
 const hol = (cc, title, date) => ({ id: `tev_${cc}${date}`, kind: 'holiday', title, starts_at: `${date}T00:00:00.000Z`, tz: 'UTC', status: 'scheduled', source_id: `holiday:${cc}:${date}:x` });
-const rows = [hol('PL', 'All Saints\' Day', '2026-11-01'), hol('FR', 'All Saints\' Day', '2026-11-01'), hol('AT', 'All Saints\' Day', '2026-11-01'), hol('BE', 'All Saints\' Day', '2026-11-01'), hol('ES', 'All Saints\' Day', '2026-11-01'), hol('US', 'Veterans Day', '2026-11-11')];
+const rows = [hol('PL', 'All Saints\' Day', '2026-11-01'), hol('FR', 'All Saints\' Day', '2026-11-01'), hol('AT', 'All Saints\' Day', '2026-11-01'), hol('BE', 'All Saints\' Day', '2026-11-01'), hol('ES', 'All Saints Day', '2026-11-01'), hol('US', 'Veterans Day', '2026-11-11')];
 const page = views.home({ upcoming: [], holidays: rows, now });
 assert.ok(page.includes('id="td-holidays"'), 'the holidays have their own section');
 assert.strictEqual((page.match(/<b>All Saints&#39;? ?Day<\/b>|<b>All Saints' Day<\/b>|<b>All Saints&#x27; Day<\/b>/g) || []).length, 1, 'one line for a holiday many countries keep');
