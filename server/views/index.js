@@ -108,7 +108,8 @@ function holidaysWeek(rows, now) {
     const groups = new Map();
     for (const e of rows) {
         const day = dayKey(e.starts_at, e.tz);
-        const key = `${day}|${e.title}`;
+        // The dataset spells some names two ways ("All Saints' Day", "All Saints Day"): one line for both.
+        const key = `${day}|${String(e.title).replace(/['\u2019]/g, '').toLowerCase()}`;
         const cc = String(e.source_id || '').split(':')[1] || '';
         const g = groups.get(key) || { day, title: e.title, at: e.starts_at, tz: e.tz, countries: [], id: e.id };
         if (cc && !g.countries.includes(cc)) g.countries.push(cc);
