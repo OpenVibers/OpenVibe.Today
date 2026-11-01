@@ -62,5 +62,36 @@
         });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+    // Remind me: the form's time zone is the device's, and the words are read back as they are typed.
+    function remindForm() {
+        document.querySelectorAll('[data-tz]').forEach(function (el) { el.value = zone; });
+        var form = document.querySelector('[data-remind-preview]');
+        if (!form || form.getAttribute('data-ready')) return;
+        form.setAttribute('data-ready', '1');
+        var input = form.querySelector('input[name="text"]'), out = form.querySelector('[data-remind-out]');
+        var hint = out ? out.textContent : '', timer = 0, seq = 0;
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            var text = input.value.trim();
+            if (!text) { out.textContent = hint; out.classList.remove('is-bad', 'is-ok'); return; }
+            timer = setTimeout(function () {
+                var mine = ++seq;
+                fetch(form.getAttribute('data-remind-preview'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ text: text, tz: zone }) })
+                    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                    .then(function (x) {
+                        if (mine !== seq) return;
+                        if (!x.ok) { out.textContent = x.d.error || 'Say what, and when.'; out.classList.add('is-bad'); out.classList.remove('is-ok'); return; }
+                        out.textContent = '“' + x.d.title + '”: ' + x.d.summary + ' · first ' + fmt(new Date(x.d.next_at), { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+                        out.classList.add('is-ok'); out.classList.remove('is-bad');
+                    }).catch(function () { /* the form still works */ });
+            }, 300);
+        });
+        document.querySelectorAll('time[data-local="when"]').forEach(function (el) {
+            var d = new Date(el.getAttribute('datetime'));
+            if (!isNaN(d)) el.textContent = fmt(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+        });
+    }
+    document.addEventListener('ov:boost:load', remindForm);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', remindForm); else remindForm();
     document.addEventListener('ov:boost:load', run);
 })();

@@ -15,6 +15,11 @@
  *   GET    /me/feed                            the private ICS URL, created on first call
  *   POST   /me/feed/rotate                     replace it (the old URL is 404 at once)
  *   GET    /me/brief                           today's brief, built on demand when missing
+ *   POST   /reminders/parse                    what plain words mean: { text, tz } → { title, summary, next_at, rule }
+ *   GET    /reminders                          the caller's own reminders (active first)
+ *   POST   /reminders                          set one from plain words: { text, tz, url?, source? }
+ *   POST   /reminders/:id/done · /snooze       done, or later by { minutes }
+ *   DELETE /reminders/:id                      remove it
  *
  * A person is the session cookie (today_at) or Authorization: Bearer <Network user token>, verified offline with
  * the Network JWKS. A write made with the session cookie must come from openvibe.today itself (403
@@ -26,7 +31,7 @@ const { sameOrigin } = require('./principal');
 const { parseTime, isIanaZone } = require('../events/validate');
 
 function createApi(ctx) {
-    const { config, s, principal, events, feeds, follows, agenda, brief } = ctx;
+    const { config, s, principal, events, feeds, follows, agenda, brief, mine } = ctx;
     const r = asyncRouter();
 
     const invalid = (res, field, message) => res.status(400).json({ code: 'today.invalid', field, message });
@@ -135,6 +140,33 @@ function createApi(ctx) {
 
     r.get('/me/reminders', requirePerson, async (req, res) => {
         res.json({ reminders: await events.listReminders(req.principal.subject) });
+    });
+
+    // ── A person's own reminders (plan L48, R1) ────────────
+    const body = (req) => (req.body && typeof req.body === 'object' ? req.body : {});
+    r.post('/reminders/parse', requirePerson, (req, res) => {
+        const b = body(req);
+        const out = mine.preview({ text: b.text, tz: b.tz });
+        return out.error ? res.status(422).json({ error: out.error }) : res.json(out);
+    });
+    r.get('/reminders', requirePerson, async (req, res) => {
+        res.set('Cache-Control', 'private, no-store').json({ reminders: await mine.list(req.principal.subject) });
+    });
+    r.post('/reminders', requirePerson, async (req, res) => {
+        const b = body(req);
+        const out = await mine.create(req.principal.subject, { text: b.text, tz: b.tz, url: b.url, source: b.source });
+        return out.error ? res.status(422).json({ error: out.error }) : res.status(201).json(out);
+    });
+    r.post('/reminders/:id/done', requirePerson, async (req, res) => {
+        const out = await mine.done(req.principal.subject, String(req.params.id));
+        return out ? res.json(out) : res.status(404).json({ error: 'No such reminder' });
+    });
+    r.post('/reminders/:id/snooze', requirePerson, async (req, res) => {
+        const out = await mine.snooze(req.principal.subject, String(req.params.id), body(req).minutes);
+        return out ? res.json(out) : res.status(404).json({ error: 'No such reminder' });
+    });
+    r.delete('/reminders/:id', requirePerson, async (req, res) => {
+        return (await mine.remove(req.principal.subject, String(req.params.id))) ? res.status(204).end() : res.status(404).json({ error: 'No such reminder' });
     });
 
     r.get('/me/agenda', requirePerson, async (req, res) => {

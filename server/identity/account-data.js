@@ -16,6 +16,7 @@ const { createAccountData, TOPICS } = require('openvibe-sdk/account-data');
 const TABLES = [
     { table: 'today_events', subject: 'owner_subject', value: (usr) => usr, file: 'events.json', erase: 'delete' },
     { table: 'today_reminders', subject: 'subject', value: (usr) => usr, file: 'reminders.json', erase: 'delete' },
+    { table: 'today_my_reminders', subject: 'subject', value: (usr) => usr, file: 'my-reminders.json', erase: 'delete' },
     // The token itself is never exported; it is a bearer capability for the person's calendar.
     { table: 'today_feeds', subject: 'subject', value: (usr) => usr, file: 'feeds.json', columns: ['subject', 'created_at'], erase: 'delete' },
     { table: 'today_briefs', subject: 'subject', value: (usr) => usr, file: 'briefs.json', erase: 'delete' },
