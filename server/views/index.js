@@ -345,6 +345,50 @@ ${problem ? `<p class="td-note is-bad" role="alert">${esc(problem)}</p>` : ''}
 </form></div>`;
 }
 
+/**
+ * "Remind me" from anywhere (plan L48 R3): a thing with a time on another OpenVibe site (a stream, a job's closing
+ * date, a coupon's end) comes here as /remind?title=&at=&url=&from=, in the person's own zone, with how long before.
+ *   remind({ title, at, url, from, tz, lead, problem })   the confirm card
+ *   remindDone({ reminder, back, already, tz })           what was set, and the way back
+ */
+const LEAD_CHOICES = [[0, 'At the time', null], [10, '10 minutes before', null], [60, 'An hour before', null], [1440, 'The day before', null]];
+const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; } };
+const whenIn = (iso, tz) => {
+    try {
+        const d = new Date(iso);
+        const day = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' }).format(d);
+        const time = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(d);
+        return `${day} at ${time}`;
+    } catch { return new Date(iso).toISOString().slice(0, 16).replace('T', ' '); }
+};
+
+function remind({ title = '', at = '', url = '', from = '', tz = 'UTC', lead = 10, problem = '' } = {}) {
+    const host = hostOf(url) || (from ? from : '');
+    const valid = title && Number.isFinite(Date.parse(at));
+    const hidden = (n, v) => `<input type="hidden" name="${n}" value="${esc(v)}">`;
+    const radio = ([m, label]) => `<label class="td-opt"><input type="radio" name="lead" value="${m}"${Number(lead) === m ? ' checked' : ''}><span><b>${esc(label)}</b></span></label>`;
+    return `<div class="td-wrap td-page-pad td-narrow" id="td-remind" data-tz="${esc(tz)}">
+<header class="td-page-h"><p class="td-kicker">${kit.icon('bell')} Remind me${host ? ` · from ${esc(host)}` : ''}</p>
+<h1>${valid ? esc(title) : 'Nothing to remind you of'}</h1>
+${valid ? `<p class="td-remind-when"><time datetime="${esc(new Date(at).toISOString())}">${esc(whenIn(at, tz))}</time><span>your time, ${esc(tz.replace(/_/g, ' '))}</span></p>` : '<p class="td-lede">This link has no title or no time. Open it again from the page it came from.</p>'}</header>
+${problem ? `<p class="td-notice td-notice--bad" role="alert">${esc(problem)}</p>` : ''}
+${valid ? `<form class="td-card td-form td-remind-form" method="post" action="/remind">${hidden('title', title)}${hidden('at', at)}${hidden('url', url)}${hidden('from', from)}<input type="hidden" name="tz" value="${esc(tz)}" data-tz>
+<fieldset class="td-opts td-remind-leads"><legend>When should it reach you?</legend>${LEAD_CHOICES.map(radio).join('')}</fieldset>
+<div class="td-acts"><button class="ovk-btn ovk-btn--primary" type="submit">${kit.icon('bell')} Remind me</button>${url ? `<a class="ovk-btn ovk-btn--quiet" href="${esc(url)}">Back to ${esc(host || 'the page')}</a>` : ''}</div>
+<p class="td-fine">It reaches you in the bell and as a push on every OpenVibe site. Snooze or stop it on <a href="/me#reminders">your agenda</a>.</p></form>` : ''}
+</div>`;
+}
+
+function remindDone({ reminder, back = '', already = false, tz = 'UTC' } = {}) {
+    const host = hostOf(back);
+    return `<div class="td-wrap td-page-pad td-narrow" id="td-remind-done">
+<div class="td-card td-remind-set"><span class="td-remind-ok" aria-hidden="true">${kit.icon('check')}</span>
+<p class="td-kicker">${already ? 'Already set' : 'Reminder set'}</p><h1>${esc(reminder.title)}</h1>
+<p class="td-remind-when"><time datetime="${esc(reminder.next_at || '')}">${esc(reminder.next_at ? whenIn(reminder.next_at, tz) : '')}</time><span>it reaches you then, in the bell and as a push</span></p>
+<div class="td-acts">${back ? `<a class="ovk-btn ovk-btn--primary" href="${esc(back)}">Back to ${esc(host || 'where you were')}</a>` : ''}<a class="ovk-btn ovk-btn--quiet" href="/me#reminders">Your reminders</a><a class="ovk-btn ovk-btn--quiet" href="/me/week">Your week</a></div></div>
+</div>`;
+}
+
 function signIn({ title, text, next }) {
     return `<div class="td-wrap td-page-pad td-narrow"><div class="td-empty td-signin">${kit.icon('calendar')}<h1>${esc(title)}</h1><p>${esc(text)}</p>${kit.button({ href: `/auth/login?next=${encodeURIComponent(next)}`, label: 'Sign in with OpenVibe', kind: 'primary' })}</div></div>`;
 }
@@ -379,4 +423,4 @@ function notFound() {
     return `<div class="td-wrap td-page-pad td-narrow"><div class="td-empty">${kit.icon('calendar')}<h1>Not on the calendar</h1><p>There is nothing at this address. It may have been cancelled, or it is for followers only.</p>${kit.button({ href: '/', label: 'See what is coming up', kind: 'quiet' })}</div></div>`;
 }
 
-module.exports = { week, home, channel, event, me, brief, schedule, signIn, developers, notFound, ZONES, LENGTHS, parts, dayKey };
+module.exports = { remind, remindDone, week, home, channel, event, me, brief, schedule, signIn, developers, notFound, ZONES, LENGTHS, parts, dayKey };

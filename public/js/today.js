@@ -13,9 +13,11 @@
     try {
         if (!/(?:^|; )td_tz=/.test(document.cookie) || decodeURIComponent((document.cookie.match(/(?:^|; )td_tz=([^;]*)/) || [])[1] || '') !== zone) {
             document.cookie = 'td_tz=' + encodeURIComponent(zone) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
-            var wk = document.getElementById('td-week');
-            if (wk && wk.getAttribute('data-tz') !== zone && !/[?&]tz=/.test(location.search) && !sessionStorage.getItem('td-week-tz')) {
-                sessionStorage.setItem('td-week-tz', '1');
+            // The week, and a "Remind me" that came from another site: both say a time in the reader's zone.
+            var wk = document.getElementById('td-week') || document.getElementById('td-remind');
+            var once = 'td-tz-' + (wk ? wk.id : '');
+            if (wk && wk.getAttribute('data-tz') !== zone && !/[?&]tz=/.test(location.search) && !sessionStorage.getItem(once)) {
+                sessionStorage.setItem(once, '1');
                 location.replace(location.pathname + location.search + (location.search ? '&' : '?') + 'tz=' + encodeURIComponent(zone));
             }
         }
