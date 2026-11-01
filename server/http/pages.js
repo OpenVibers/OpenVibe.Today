@@ -231,12 +231,41 @@ function createPageRoutes(ctx) {
         const imported = calendarImports
             ? await calendarImports.events(p.subject, { from: Date.parse(first.from), to: Date.parse(first.to), tz })
             : { events: [], problems: [] };
-        const w = require('../week').build({ tz, start, now: s.now(), reminders: own, events, imports: imported.events });
+        // The country whose public holidays the week shows: the ?country= asked for, else the cookie, else the zone.
+        const holidaysLib = require('../holidays');
+        const country = holidaysLib.resolveCountry({ query: req.query.country, cookie: (req.cookies && req.cookies.td_country) || null, tz });
+        const fromYear = Number(String(first.from).slice(0, 4));
+        const toYear = Number(new Date(Date.parse(first.to) - 86400000).toISOString().slice(0, 4));
+        const holidays = fromYear === toYear
+            ? holidaysLib.holidays(country, fromYear)
+            : [...holidaysLib.holidays(country, fromYear), ...holidaysLib.holidays(country, toYear)];
+        const w = require('../week').build({ tz, start, now: s.now(), reminders: own, events, imports: imported.events, holidays });
         return page(req, res, {
             title: 'Your week',
             description: 'Your reminders, your events and the streams of the channels you follow, day by day.',
-            body: raw(views.week({ name: req.viewer.displayName || req.viewer.username, week: w, problems: imported.problems })),
+            body: raw(views.week({
+                name: req.viewer.displayName || req.viewer.username, week: w, problems: imported.problems,
+                country, countries: holidaysLib.COUNTRIES,
+            })),
         });
+    });
+
+    // The country whose public holidays the week shows. A plain form: it posts here, the country is kept in a
+    // cookie, and the week is drawn again. Nothing here needs JavaScript.
+    r.post('/me/week/country', express.urlencoded({ extended: false, limit: '2kb' }), async (req, res) => {
+        if (!signedIn(req)) return res.redirect(303, `/auth/login?next=${encodeURIComponent('/me/week')}`);
+        if (!sameOrigin(req, config.baseUrl)) return page(req, res, { title: 'Not from this site', body: raw(views.notFound()) }, 403);
+        const b = req.body || {};
+        const asked = String(b.country || '').trim().toUpperCase();
+        const code = require('../holidays').countryOf(asked);
+        if (code) res.cookie('td_country', code, { sameSite: 'lax', secure: config.cookies.secure !== false, httpOnly: true, path: '/', maxAge: 365 * 24 * 60 * 60 * 1000 });
+        else if (!asked) res.clearCookie('td_country', { path: '/' });
+        const q = new URLSearchParams();
+        const start = typeof b.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.start) ? b.start : null;
+        if (start) q.set('start', start);
+        const tz = require('../when').validTz(b.tz) ? b.tz : null;
+        if (tz) q.set('tz', tz);
+        res.redirect(303, `/me/week${q.toString() ? '?' + q.toString() : ''}`);
     });
 
     // ── "Remind me" from anywhere (plan L48 R3): /remind?title=&at=&url=&from= from any OpenVibe site ──

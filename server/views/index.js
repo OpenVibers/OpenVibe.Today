@@ -8,7 +8,7 @@
  *   channel({ username, rows, now })                 a channel's schedule and its calendar
  *   event({ e, end, reminder, own, signedIn, path }) one event: when, Remind, Add to calendar, Watch, Cancel (owner)
  *   me({ name, agenda, reminders, feedUrl, now })    the person's agenda, reminders, calendars and private feed
- *   week({ name, week, problems })                   the person's week, day by day (server/week.js, plan L48 R3)
+ *   week({ name, week, problems, country, countries }) the person's week, day by day (server/week.js, plan L48 R3)
  *   brief({ out, name, tz })                         the day's brief
  *   schedule({ values, problem, zones })             the schedule form
  *   signIn({ title, text, next })                    a page that needs an account
@@ -302,11 +302,11 @@ ${reminders.length ? `<ul class="td-rems">${reminders.map((x) => `<li><a href="/
  * mark for its kind: a reminder (once or repeating), a repeating reminder's span for the day, their own event, a
  * stream of a channel they follow, or an event of a calendar they imported.
  */
-function week({ name, week: w, problems = [] }) {
-    const KIND = { reminder: ['bell', 'Reminder'], band: ['retry', 'Repeats'], event: ['calendar', 'Your event'], stream: ['live', 'Stream'], import: ['calendar', 'Calendar'] };
+function week({ name, week: w, problems = [], country = null, countries = [] }) {
+    const KIND = { reminder: ['bell', 'Reminder'], band: ['retry', 'Repeats'], event: ['calendar', 'Your event'], stream: ['live', 'Stream'], import: ['calendar', 'Calendar'], holiday: ['gift', 'Holiday'] };
     const item = (it) => {
         const [icon, word] = KIND[it.kind] || KIND.reminder;
-        const meta = it.kind === 'band' ? it.summary : it.kind === 'stream' ? (it.channel ? `@${it.channel}` : word) : it.kind === 'import' ? (it.calendar || word) : it.kind === 'reminder' && it.repeats ? 'Repeats' : word;
+        const meta = it.kind === 'band' ? it.summary : it.kind === 'stream' ? (it.channel ? `@${it.channel}` : word) : it.kind === 'import' ? (it.calendar || word) : it.kind === 'holiday' ? (it.country || word) : it.kind === 'reminder' && it.repeats ? 'Repeats' : word;
         const body = `<span class="td-wi-k" aria-hidden="true">${kit.icon(icon)}</span><time datetime="${esc(it.at)}">${esc(it.time)}</time><span class="td-wi-t">${esc(it.title)}</span><span class="td-wi-m">${it.live ? '<span class="td-pill is-live">Live now</span>' : ''}<span class="ovk-sr">${esc(word)}: </span>${esc(meta)}</span>`;
         // An imported event has no page of its own here: it is shown, not linked.
         return `<li class="td-wi is-${esc(it.kind)}${it.live ? ' is-live' : ''}">${it.href ? `<a href="${esc(it.href)}">${body}</a>` : `<a>${body}</a>`}</li>`;
@@ -325,14 +325,19 @@ ${d.items.length ? `<ul class="td-wis">${d.items.map(item).join('')}</ul>` : '<p
         ? `<li class="td-pd is-empty">Nothing on ${esc(list(r.days.map((d) => d.label)))}</li>`
         : r.days.map((d) => `<li class="td-pd${d.today ? ' is-today' : ''}"><h2 class="td-pd-h">${esc(d.long)}${d.today ? ' <i>Today</i>' : ''}</h2>${d.items.length ? `<ul class="td-wis">${d.items.map(item).join('')}</ul>` : '<p class="td-wd-none">Nothing yet</p>'}</li>`).join(''))).join('');
     const count = w.days.reduce((a, d) => a + d.items.length, 0);
+    const countryLabel = country ? ((countries.find((c) => c.code === country) || {}).name || null) : null;
     return `<div class="td-wrap td-page-pad" id="td-week" data-tz="${esc(w.tz)}">
 <header class="td-page-h"><p class="td-kicker">Your week</p><h1>${esc(w.title)}</h1>
-<p class="td-lede">${count ? `${count} thing${count === 1 ? '' : 's'} this week` : 'A clear week so far'}: your reminders, your events and the streams of the channels you follow${name ? `, ${esc(name)}` : ''}. Times in ${esc(w.tz.replace(/_/g, ' '))}.</p>
+<p class="td-lede">${count ? `${count} thing${count === 1 ? '' : 's'} this week` : 'A clear week so far'}: your reminders, your events and the streams of the channels you follow${countryLabel ? ` and the public holidays of ${esc(countryLabel)}` : ''}${name ? `, ${esc(name)}` : ''}. Times in ${esc(w.tz.replace(/_/g, ' '))}.</p>
 <nav class="td-weeknav" aria-label="Weeks"><a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me/week?start=${esc(w.prev)}" rel="prev">${kit.icon('back')}<span>Last week</span></a>${w.thisWeek ? '' : '<a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me/week">This week</a>'}<a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me/week?start=${esc(w.next)}" rel="next"><span>Next week</span>${kit.icon('chevron')}</a><a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me">As a list</a></nav>
 <form class="td-quick" method="post" action="/me/reminders"><input type="hidden" name="back" value="week"><input type="hidden" name="tz" value="${esc(w.tz)}" data-tz>
 <label class="ovk-sr" for="td-quick-text">Add a reminder in plain words</label><input id="td-quick-text" name="text" maxlength="500" required placeholder="Remind me… every weekday at 9, tomorrow at 3pm, every 2 hours from 9 to 5" autocomplete="off">
 <button class="ovk-btn ovk-btn--primary ovk-btn--small" type="submit">${kit.icon('plus')}Add</button></form>
-<p class="td-fine">The calendars you import show here too. <a href="/me#calendars">Add or remove one</a>.</p>
+<form class="td-holsel" method="post" action="/me/week/country"><input type="hidden" name="start" value="${esc(w.start)}"><input type="hidden" name="tz" value="${esc(w.tz)}">
+<label for="td-hol-country">Holidays</label>
+<select id="td-hol-country" name="country"><option value=""${country ? '' : ' selected'}>None</option>${countries.map((c) => `<option value="${esc(c.code)}"${c.code === country ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+<button class="ovk-btn ovk-btn--quiet ovk-btn--small" type="submit">Save</button></form>
+<p class="td-fine">The public holidays of the country you choose, from that country's own list. The calendars you import show here too. <a href="/me#calendars">Add or remove one</a>.</p>
 </header>
 ${problems.length ? `<p class="td-note is-bad" role="status">${problems.map((p) => esc(p.name) + ': ' + esc(p.message)).join(' — ')}</p>` : ''}
 <ol class="td-week" aria-label="The week">${cols}</ol>
