@@ -7,8 +7,8 @@
  *   home({ upcoming, now })                          the front door: the day's ring, what is coming, three scenes
  *   channel({ username, rows, now })                 a channel's schedule and its calendar
  *   event({ e, end, reminder, own, signedIn, path }) one event: when, Remind, Add to calendar, Watch, Cancel (owner)
- *   me({ name, agenda, reminders, feedUrl, now })    the person's agenda, reminders and private feed
- *   week({ name, week })                             the person's week, day by day (server/week.js, plan L48 R3)
+ *   me({ name, agenda, reminders, feedUrl, now })    the person's agenda, reminders, calendars and private feed
+ *   week({ name, week, problems })                   the person's week, day by day (server/week.js, plan L48 R3)
  *   brief({ out, name, tz })                         the day's brief
  *   schedule({ values, problem, zones })             the schedule form
  *   signIn({ title, text, next })                    a page that needs an account
@@ -248,13 +248,39 @@ ${done.length ? `<details class="td-mine-done"><summary>Done (${done.length})</s
 </section>`;
 }
 
-function me({ name, agenda = { events: [] }, reminders = [], feedUrl = '', now = Date.now(), mine = [], problem = null, said = '' } = {}) {
+/**
+ * The calendars a person imports (plan L48 R3): a small form under the reminders, and the list with each address
+ * shortened and a button to take it away.
+ */
+function calendars({ list = [], problem = null, said = '' } = {}) {
+    const row = (c) => `<li class="td-mine-row">
+<span class="td-mine-ico" aria-hidden="true">${kit.icon('calendar')}</span>
+<span class="td-mine-main"><b>${esc(c.name)}</b><small title="${esc(c.url)}">${esc(c.short)}</small>${c.last_error ? `<small class="is-bad">Could not be read: ${esc(c.last_error)}</small>` : ''}</span>
+<span class="td-mine-acts"><form method="post" action="/me/calendars/${esc(c.id)}/remove" class="td-inline"><button class="td-chip-btn" type="submit">Remove</button></form></span>
+</li>`;
+    return `<section class="td-card td-remind" id="calendars" aria-labelledby="td-cal-h">
+<h2 id="td-cal-h">${kit.icon('calendar')}Import a calendar</h2>
+<p class="td-fine">The address of any calendar that reads iCalendar (.ics). Its events show on your week, and Today reads it at most once every half hour.</p>
+<form method="post" action="/me/calendars" class="td-cal-form">
+<label class="td-sr" for="td-cal-url">The address of the calendar</label>
+<input id="td-cal-url" name="url" type="text" required maxlength="500" autocomplete="off" value="${esc(said)}" placeholder="https://…/calendar.ics">
+<label class="td-sr" for="td-cal-name">A name for it (optional)</label>
+<input id="td-cal-name" name="name" type="text" maxlength="60" autocomplete="off" placeholder="Work">
+<button class="ovk-btn ovk-btn--primary" type="submit">${kit.icon('plus')}Add</button>
+</form>
+${problem ? `<p class="td-note is-bad" role="alert">${esc(problem)}</p>` : ''}
+${list.length ? `<ul class="td-mine">${list.map(row).join('')}</ul>` : '<p class="td-fine">None yet. A calendar you add here shows on your week, beside your own events.</p>'}
+</section>`;
+}
+
+function me({ name, agenda = { events: [] }, reminders = [], feedUrl = '', now = Date.now(), mine = [], myCalendars = [], problem = null, said = '', calProblem = null, calSaid = '' } = {}) {
     const webcal = String(feedUrl).replace(/^https?:/, 'webcal:');
     return `<div class="td-wrap td-page-pad" id="td-me">
 <header class="td-page-h"><p class="td-kicker">Your agenda</p><h1>The next two weeks</h1>
 <p class="td-lede">Your own events, the ones you set reminders on, and the channels you follow, ${esc(name || 'you')}.</p>
 <div class="td-acts">${kit.button({ href: '/me/week', label: 'Your week', kind: 'primary' })}${kit.button({ href: '/schedule', label: 'Schedule a stream', kind: 'quiet' })}${kit.button({ href: '/brief', label: 'Your brief', kind: 'quiet' })}</div></header>
 ${myReminders({ mine, problem, said })}
+${calendars({ list: myCalendars, problem: calProblem, said: calSaid })}
 ${agenda.follows_unavailable ? '<p class="td-note" role="status">OpenVibe.Network did not answer, so the channels you follow are missing for a moment. Your own and reminded events are all here.</p>' : ''}
 <div class="td-me-grid"><div>${days(agenda.events || [], { now, empty: 'Nothing in the next two weeks. Follow a channel on Live, or set a reminder on something coming up.' })}</div>
 <aside class="td-side">
@@ -273,15 +299,17 @@ ${reminders.length ? `<ul class="td-rems">${reminders.map((x) => `<li><a href="/
 /**
  * The person's week (plan L48 R3): seven days from Monday in their own time zone. On a computer, seven columns; on a
  * phone, the days one under another, with the empty ones said in one line. Each line is a time, what it is, and a
- * mark for its kind: a reminder (once or repeating), a repeating reminder's span for the day, their own event, or a
- * stream of a channel they follow.
+ * mark for its kind: a reminder (once or repeating), a repeating reminder's span for the day, their own event, a
+ * stream of a channel they follow, or an event of a calendar they imported.
  */
-function week({ name, week: w }) {
-    const KIND = { reminder: ['bell', 'Reminder'], band: ['retry', 'Repeats'], event: ['calendar', 'Your event'], stream: ['live', 'Stream'] };
+function week({ name, week: w, problems = [] }) {
+    const KIND = { reminder: ['bell', 'Reminder'], band: ['retry', 'Repeats'], event: ['calendar', 'Your event'], stream: ['live', 'Stream'], import: ['calendar', 'Calendar'] };
     const item = (it) => {
         const [icon, word] = KIND[it.kind] || KIND.reminder;
-        const meta = it.kind === 'band' ? it.summary : it.kind === 'stream' ? (it.channel ? `@${it.channel}` : word) : it.kind === 'reminder' && it.repeats ? 'Repeats' : word;
-        return `<li class="td-wi is-${esc(it.kind)}${it.live ? ' is-live' : ''}"><a href="${esc(it.href)}"><span class="td-wi-k" aria-hidden="true">${kit.icon(icon)}</span><time datetime="${esc(it.at)}">${esc(it.time)}</time><span class="td-wi-t">${esc(it.title)}</span><span class="td-wi-m">${it.live ? '<span class="td-pill is-live">Live now</span>' : ''}<span class="ovk-sr">${esc(word)}: </span>${esc(meta)}</span></a></li>`;
+        const meta = it.kind === 'band' ? it.summary : it.kind === 'stream' ? (it.channel ? `@${it.channel}` : word) : it.kind === 'import' ? (it.calendar || word) : it.kind === 'reminder' && it.repeats ? 'Repeats' : word;
+        const body = `<span class="td-wi-k" aria-hidden="true">${kit.icon(icon)}</span><time datetime="${esc(it.at)}">${esc(it.time)}</time><span class="td-wi-t">${esc(it.title)}</span><span class="td-wi-m">${it.live ? '<span class="td-pill is-live">Live now</span>' : ''}<span class="ovk-sr">${esc(word)}: </span>${esc(meta)}</span>`;
+        // An imported event has no page of its own here: it is shown, not linked.
+        return `<li class="td-wi is-${esc(it.kind)}${it.live ? ' is-live' : ''}">${it.href ? `<a href="${esc(it.href)}">${body}</a>` : `<a>${body}</a>`}</li>`;
     };
     // On a phone, a run of empty days is one line ("Nothing on Sat and Sun").
     const runs = [];
@@ -304,7 +332,9 @@ ${d.items.length ? `<ul class="td-wis">${d.items.map(item).join('')}</ul>` : '<p
 <form class="td-quick" method="post" action="/me/reminders"><input type="hidden" name="back" value="week"><input type="hidden" name="tz" value="${esc(w.tz)}" data-tz>
 <label class="ovk-sr" for="td-quick-text">Add a reminder in plain words</label><input id="td-quick-text" name="text" maxlength="500" required placeholder="Remind me… every weekday at 9, tomorrow at 3pm, every 2 hours from 9 to 5" autocomplete="off">
 <button class="ovk-btn ovk-btn--primary ovk-btn--small" type="submit">${kit.icon('plus')}Add</button></form>
+<p class="td-fine">The calendars you import show here too. <a href="/me#calendars">Add or remove one</a>.</p>
 </header>
+${problems.length ? `<p class="td-note is-bad" role="status">${problems.map((p) => esc(p.name) + ': ' + esc(p.message)).join(' — ')}</p>` : ''}
 <ol class="td-week" aria-label="The week">${cols}</ol>
 <ol class="td-pweek" aria-label="The week, day by day">${phone}</ol>
 </div>`;
