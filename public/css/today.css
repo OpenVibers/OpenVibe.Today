@@ -269,3 +269,26 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
 /* The week's lines read as text (the room's link colour belongs to links in prose), and their times line up. */
 .td-wrap .td-wi a, .td-wrap .td-wi-t { color: var(--text-primary, #e8eef8); }
 .td-wi time { min-width: 2.9em; }
+
+/* ── "Remind me" from anywhere (plan L48 R3): the confirm card and what was set ── */
+#td-remind .td-kicker, #td-remind-done .td-kicker { display: inline-flex; align-items: center; gap: 6px; }
+#td-remind .td-kicker .ovk-i { width: 1.05em; height: 1.05em; }
+.td-remind-when { margin: 10px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.td-remind-when time { font-size: clamp(1.15rem, 2.6vw, 1.45rem); font-weight: 800; letter-spacing: -.01em; color: var(--text-primary, #e8eef8); font-variant-numeric: tabular-nums; }
+.td-remind-when span { color: var(--text-muted, #6f819d); font-size: .9rem; }
+.td-remind-form { margin-top: 18px; display: block; }
+.td-remind-leads { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr)); }
+.td-remind-leads legend { grid-column: 1 / -1; }
+.td-remind-leads .td-opt { align-items: center; min-height: 48px; padding: 10px 12px; }
+.td-remind-leads .td-opt input { margin: 0; }
+.td-remind-leads .td-opt:has(input:checked) { border-color: var(--room-accent); box-shadow: inset 0 0 0 1px var(--room-accent); background: color-mix(in srgb, var(--room-accent) 10%, var(--bg-card, #0f1729)); }
+.td-remind-form .td-acts .ovk-btn { gap: 8px; }
+.td-remind-form .td-fine { margin: 14px 0 0; color: var(--text-muted, #6f819d); font-size: .86rem; line-height: 1.5; }
+.td-remind-form .td-fine a { color: var(--room-strong, var(--room-accent)); }
+.td-remind-set { margin-top: clamp(16px, 6vh, 56px); padding: clamp(20px, 4vw, 32px); text-align: center; display: grid; justify-items: center; }
+.td-remind-set h1 { margin: 2px 0 0; font-size: clamp(1.5rem, 3.6vw, 2.2rem); letter-spacing: -.025em; text-wrap: balance; }
+.td-remind-set .td-remind-when { justify-content: center; }
+.td-remind-set .td-acts { justify-content: center; margin-top: 18px; }
+.td-remind-ok { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 10px; border-radius: 16px; background: color-mix(in srgb, #22c55e 18%, transparent); color: #22c55e; }
+.td-remind-ok .ovk-i { width: 26px; height: 26px; }
+.td-notice--bad { padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, #ef4444 50%, var(--border, #1f2d47)); background: color-mix(in srgb, #ef4444 10%, transparent); }

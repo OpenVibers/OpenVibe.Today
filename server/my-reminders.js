@@ -6,6 +6,10 @@
  *   createMyReminders({ s })
  *     preview({ text, tz, now })                 → { title, rule, tz, next_at, summary } or { error }
  *     create(subject, { text, tz, url, source }) → the reminder, or { error } (a person keeps at most MAX_ACTIVE)
+ *     createAt(subject, { title, at, lead, url, source, tz })
+ *                                                → a one-off before something with a time on another site ("Remind me" on a
+ *                                                  stream, a job's closing date, a coupon's end): { reminder, already } or
+ *                                                  { error }. lead is minutes before (0, 10, 60 or 1440).
  *     list(subject)                              → active first (soonest first), then the last done ones
  *     done(subject, id) · snooze(subject, id, minutes) · remove(subject, id)
  *     due(now) · claim(row, now) · release(row)   the job's side: claim moves next_at on in one UPDATE
@@ -46,6 +50,39 @@ function createMyReminders({ s }) {
             [id, subject, p.title, String(text).trim().slice(0, 500), JSON.stringify(p.rule), p.tz, safeUrl(url), SOURCES.test(String(source)) ? source : 'today', p.next_at],
         );
         return wire(row, { now: s.now() });
+    }
+
+    const LEADS = [0, 10, 60, 1440];
+    const leadWords = (m) => ({ 0: 'at the time', 10: '10 minutes before', 60: 'an hour before', 1440: 'the day before' })[m] || '';
+
+    /** A thing with a time on another site → a one-off reminder before it. The same thing set twice is set once. */
+    async function createAt(subject, { title, at, lead = 10, url = null, source = 'today', tz = 'UTC', now = s.now() }) {
+        const name = String(title == null ? '' : title).replace(/\s+/g, ' ').trim().slice(0, 200);
+        if (!name) return { error: 'What should the reminder say?' };
+        const when0 = Date.parse(String(at || ''));
+        if (!Number.isFinite(when0)) return { error: 'That time could not be read.' };
+        if (when0 <= now + 60_000) return { error: 'That time has already passed.' };
+        if (when0 > now + 2 * 365 * 86_400_000) return { error: 'That is more than two years away.' };
+        const m = LEADS.includes(Number(lead)) ? Number(lead) : 10;
+        // Too close for the lead asked: as soon as it can, never in the past.
+        const remindAt = new Date(Math.max(now + 60_000, when0 - m * 60_000));
+        const zone = when.validTz(tz) ? tz : 'UTC';
+        const link = safeUrl(url);
+        const src = SOURCES.test(String(source)) ? String(source) : 'today';
+        const same = await db.maybe(
+            "SELECT * FROM today_my_reminders WHERE subject = $1 AND status = 'active' AND title = $2 AND url IS NOT DISTINCT FROM $3 AND date_trunc('minute', next_at) = date_trunc('minute', $4::timestamptz) LIMIT 1",
+            [subject, name, link, remindAt.toISOString()],
+        );
+        if (same) return { reminder: wire(same, { now }), already: true };
+        const active = Number(await db.value("SELECT count(*)::int FROM today_my_reminders WHERE subject = $1 AND status = 'active'", [subject]));
+        if (active >= MAX_ACTIVE) return { error: `You have ${MAX_ACTIVE} reminders already. Mark some done first.` };
+        const rule = { kind: 'once', at: remindAt.toISOString() };
+        const row = await db.maybe(
+            `INSERT INTO today_my_reminders (id, subject, title, said, rule, tz, url, source, next_at)
+             VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9) RETURNING *`,
+            [s.newId('rem'), subject, name, `${name} (${leadWords(m)}, from ${src})`.slice(0, 500), JSON.stringify(rule), zone, link, src, remindAt.toISOString()],
+        );
+        return { reminder: wire(row, { now }), already: false };
     }
 
     async function list(subject) {
@@ -104,7 +141,7 @@ function createMyReminders({ s }) {
         await db.exec("UPDATE today_my_reminders SET next_at = $2, status = 'active', sent_count = GREATEST(sent_count - 1, 0) WHERE id = $1", [row.id, row.next_at]);
     }
 
-    return { preview, create, list, done, snooze, remove, due, claim, release, wire, MAX_ACTIVE };
+    return { preview, create, createAt, LEADS, list, done, snooze, remove, due, claim, release, wire, MAX_ACTIVE };
 }
 
 module.exports = { createMyReminders };

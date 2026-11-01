@@ -234,6 +234,40 @@ function createPageRoutes(ctx) {
         });
     });
 
+    // ── "Remind me" from anywhere (plan L48 R3): /remind?title=&at=&url=&from= from any OpenVibe site ──
+    const remindArgs = (q) => ({
+        title: String(q.title || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+        at: String(q.at || '').slice(0, 40),
+        url: /^https:\/\//.test(String(q.url || '')) ? String(q.url).slice(0, 2000) : '',
+        from: /^[a-z][a-z0-9.-]{1,40}$/.test(String(q.from || '')) ? String(q.from) : '',
+    });
+    const zoneOf = (req, asked) => {
+        const z = String(asked || (req.cookies && req.cookies.td_tz) || '');
+        return require('../when').validTz(z) ? z : 'UTC';
+    };
+    r.get('/remind', async (req, res) => {
+        const a = remindArgs(req.query || {});
+        if (!signedIn(req)) {
+            return page(req, res, { title: 'Remind me', body: raw(views.signIn({ title: a.title ? `Remind me: ${a.title}` : 'Remind me', text: 'Sign in with your OpenVibe account, and the reminder reaches you in the bell and as a push on every OpenVibe site.', next: req.originalUrl })) });
+        }
+        const tz = zoneOf(req, req.query.tz);
+        res.set('Cache-Control', 'private, no-store');
+        return page(req, res, { title: a.title ? `Remind me: ${a.title}` : 'Remind me', body: raw(views.remind({ ...a, tz, lead: 10 })) });
+    });
+    r.post('/remind', express.urlencoded({ extended: false, limit: '8kb' }), async (req, res) => {
+        const b = req.body || {};
+        const a = remindArgs(b);
+        if (!signedIn(req)) return res.redirect(303, `/auth/login?next=${encodeURIComponent(`/remind?${new URLSearchParams(a)}`)}`);
+        if (!sameOrigin(req, config.baseUrl)) return page(req, res, { title: 'Not from this site', body: raw(views.notFound()) }, 403);
+        const tz = zoneOf(req, b.tz);
+        if (!mine) return page(req, res, { title: 'Remind me', body: raw(views.remind({ ...a, tz, problem: 'Reminders are not available right now.' })) }, 503);
+        const out = await mine.createAt(req.viewer.subject, { title: a.title, at: a.at, lead: b.lead, url: a.url, source: (a.from || hostOf(a.url) || 'today').replace(/^openvibe\./, '').replace(/[^a-z0-9-]/g, '-').slice(0, 30) || 'today', tz });
+        if (out.error) return page(req, res, { title: 'Remind me', body: raw(views.remind({ ...a, tz, lead: Number(b.lead) || 10, problem: out.error })) }, 422);
+        res.set('Cache-Control', 'private, no-store');
+        return page(req, res, { title: 'Reminder set', body: raw(views.remindDone({ reminder: out.reminder, back: a.url, already: out.already, tz })) }, out.already ? 200 : 201);
+    });
+    const hostOf = (u) => { try { return new URL(u).host; } catch { return ''; } };
+
     // ── A person's own reminders (plan L48, R1): plain forms, so the page works without its script ──
     const mineGuard = (req, res, next) => {
         if (!signedIn(req)) return res.redirect(303, '/auth/login?next=%2Fme%23reminders');
