@@ -203,7 +203,7 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
 .td-remind-form input[name="text"]:focus { outline: 2px solid var(--room-strong, var(--accent, #4f8cff)); outline-offset: 1px; }
 .td-remind-out { grid-column: 1 / -1; margin: 0; font-size: .86rem; color: var(--text-muted, #7386a3); min-height: 1.3em; }
 .td-remind-out.is-ok { color: var(--text-primary, #e8edf3); }
-.td-remind-out.is-bad { color: #f87171; }
+.td-remind-out.is-bad { color: var(--danger-text, #f87171); }
 .td-mine { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .td-mine-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--room-strong, #4f8cff) 6%, transparent); }
 .td-mine-row.is-done { opacity: .65; }
@@ -303,6 +303,6 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
 .td-remind-set h1 { margin: 2px 0 0; font-size: clamp(1.5rem, 3.6vw, 2.2rem); letter-spacing: -.025em; text-wrap: balance; }
 .td-remind-set .td-remind-when { justify-content: center; }
 .td-remind-set .td-acts { justify-content: center; margin-top: 18px; }
-.td-remind-ok { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 10px; border-radius: 16px; background: color-mix(in srgb, #22c55e 18%, transparent); color: #22c55e; }
+.td-remind-ok { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 10px; border-radius: 16px; background: color-mix(in srgb, #22c55e 18%, transparent); color: var(--success-text, #22c55e); }
 .td-remind-ok .ovk-i { width: 26px; height: 26px; }
 .td-notice--bad { padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, #ef4444 50%, var(--border, #1f2d47)); background: color-mix(in srgb, #ef4444 10%, transparent); }
