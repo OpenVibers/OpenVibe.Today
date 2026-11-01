@@ -38,6 +38,8 @@ One schedule for the whole network:
 | `today_outbox` | the fixed `evt_` id, topic, JSON payload, attempts, last error and a claim/backoff lease | `0001_initial.sql` |
 | `today_processed` | inbound Events ids already handled, so a replay is a no-op | `0001_initial.sql` |
 | `today_briefs` | (`subject`, `day`) → the sections, one per person per day | `0001_initial.sql` |
+| `today_calendar_imports` | the addresses a person imported: `cal_` + ULID, `subject` (`usr_…`), the https `url`, its short `name`, when it was last read and why the last read failed; at most five per person | `migrations/0004_calendar_imports.sql` |
+| `today_calendar_import_cache` | the copy of each imported calendar, read at most once every half hour; it goes with the address | `0004_calendar_imports.sql` |
 | `account_data_events` | the receipts openvibe-sdk/account-data keeps for export and deletion deliveries | `0001_initial.sql` |
 | `telemetry_samples` | aggregated request telemetry, pruned after 14 days | `0001_initial.sql` |
 
@@ -170,7 +172,8 @@ HTML and stable `td-` ids/classes:
 | `/` | the room's front door: the day's ring (today's events on the reader's clock), what is coming up by day, three scenes |
 | `/@:username` | a channel's schedule, with Subscribe (`webcal://`) and the `.ics` |
 | `/e/:id` | one event, with `application/ld+json` `Event` (name, startDate, endDate, eventStatus, eventAttendanceMode, VirtualLocation, organizer); Remind me (`POST /e/:id/remind`, `/remind/remove`), Add to calendar (`/e/:id.ics`), Watch on Live, and Cancel for its owner (`POST /e/:id/cancel`) |
-| `/me` | agenda, reminders, the feed URL and its rotate form |
+| `/me` | agenda, reminders, the calendars you imported (a form and a list, with a Remove button), the feed URL and its rotate form |
+| `/me/week` | your week: seven days from Monday in your own zone — your reminders at each time they fire, your events, the streams of the channels you follow, and the events of the calendars you imported |
 | `/brief` | today's brief |
 | `/schedule` | a plain form that schedules a stream or an event: the start is wall time in the chosen zone (the device's, with JavaScript), plus a length (`POST /schedule` → 303 `/e/:id`) |
 | `/developers` | the API |
@@ -194,7 +197,10 @@ The tests boot the app with a mock Network and Events: events (validation, idemp
 transactional outbox), ICS (folding, escaping, cancellation window, token rotation), the consumer (signed, replay, bad
 signature), the outbox (fixed id, backoff, restart), reminders (one notification, concurrency, cancelled), agenda
 (follows and Network down), imports (idempotent, time zones, source links, retirement, no private fields), brief
-(sections, Rundown failure, one per day), pages, sign-in, account export/deletion and discovery.
+(sections, Rundown failure, one per day), pages, sign-in, account export/deletion and discovery. The imported calendars
+are tested on their own: reading a calendar (a zone, an all-day event, a weekly rule, an excluded day, a cancelled
+event, a clock change), refusing a private address and a body that is too big, the week that shows them, the five
+addresses a person may keep, and a form post from another site refused.
 
 ## Imports
 
@@ -205,6 +211,23 @@ in Live's studio writes them into this service's own table. The job runs at boot
 `TODAY_IMPORTS_INTERVAL_MS`, is off under `TODAY_DRILL`, and `npm run imports:run` runs one pass by hand. Each row
 keeps its `source`/`source_id`, its source URL and its time zone; a second run updates the same row, and a source
 item that disappears retires its row.
+
+## Imported calendars
+
+A person can add up to five calendar addresses on their agenda (`POST /me/calendars`, `POST /me/calendars/:id/remove`):
+`https://…` or the `webcal://` form of one, which becomes `https://`. The address is read through the shared egress
+rule (`openvibe-shared/egress`): https only, a public host only, a name that resolves to a private or link-local
+address refused before a byte is sent and again at connect time, a redirect followed only after the same check, a 10 s
+timeout, at most 2 MB, and only `text/calendar` or `text/plain` is read. Each address is read at most once every
+half hour, and the copy is what the week is drawn from, so an address that cannot be reached for a moment does not
+empty the week.
+
+`server/ical.js` reads RFC 5545 far enough and no further: `SUMMARY`, `DTSTART`/`DTEND` with a `TZID` or an
+all-day `DATE`, `DURATION`, `EXDATE`, `STATUS:CANCELLED`, and a `RRULE` that is `DAILY`, `WEEKLY` with
+`BYDAY` or `MONTHLY` by the day of the month, with `INTERVAL`, `COUNT` and `UNTIL`. A rule with anything else
+in it (`BYMONTH`, `BYSETPOS`, an ordinal `BYDAY` such as `2FR`), a zone this server does not know and an event
+with no `DTSTART` are left out and counted, never guessed at. The address belongs to the person: it is never
+exported and it goes with the account.
 
 ## Deploy
 

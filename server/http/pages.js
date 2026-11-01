@@ -115,7 +115,7 @@ function createPublicPageViews(ctx) {
 }
 
 function createPageRoutes(ctx) {
-    const { config, s, events, feeds, agenda, brief, mine } = ctx;
+    const { config, s, events, feeds, agenda, brief, mine, calendarImports } = ctx;
     const r = asyncRouter();
     r.use(express.urlencoded({ extended: false, limit: '64kb' }));
     const base = () => String(config.baseUrl).replace(/\/+$/, '');
@@ -204,10 +204,11 @@ function createPageRoutes(ctx) {
         const reminders = await events.listReminders(p.subject);
         const token = await feeds.getOrCreate(p.subject);
         const own = mine ? await mine.list(p.subject) : [];
+        const cals = calendarImports ? await calendarImports.list(p.subject) : [];
         return page(req, res, {
             title: 'Your agenda',
             description: 'Your own events, the reminders you set, the channels you follow and your private calendar feed.',
-            body: raw(views.me({ name: req.viewer.displayName || req.viewer.username, agenda: a, reminders, feedUrl: feeds.url(config, token), now: s.now(), mine: own, problem: String(req.query.problem || '').slice(0, 200) || null, said: String(req.query.said || '').slice(0, 500) })),
+            body: raw(views.me({ name: req.viewer.displayName || req.viewer.username, agenda: a, reminders, feedUrl: feeds.url(config, token), now: s.now(), mine: own, myCalendars: cals, problem: String(req.query.problem || '').slice(0, 200) || null, said: String(req.query.said || '').slice(0, 500), calProblem: String(req.query.cal_problem || '').slice(0, 200) || null, calSaid: String(req.query.cal_url || '').slice(0, 500) })),
         });
     });
 
@@ -226,11 +227,15 @@ function createPageRoutes(ctx) {
         const { wire: wireEvent } = require('../events/store');
         const reminded = new Set((await s.db.many('SELECT event_id FROM today_reminders WHERE subject = $1', [p.subject])).map((x) => x.event_id));
         const events = rows.map((x) => ({ ...wireEvent(x), own: x.owner_subject === p.subject, reminded: reminded.has(x.id) }));
-        const w = require('../week').build({ tz, start, now: s.now(), reminders: own, events });
+        // The calendars they imported: read at most once every half hour, and drawn from the copy.
+        const imported = calendarImports
+            ? await calendarImports.events(p.subject, { from: Date.parse(first.from), to: Date.parse(first.to), tz })
+            : { events: [], problems: [] };
+        const w = require('../week').build({ tz, start, now: s.now(), reminders: own, events, imports: imported.events });
         return page(req, res, {
             title: 'Your week',
             description: 'Your reminders, your events and the streams of the channels you follow, day by day.',
-            body: raw(views.week({ name: req.viewer.displayName || req.viewer.username, week: w })),
+            body: raw(views.week({ name: req.viewer.displayName || req.viewer.username, week: w, problems: imported.problems })),
         });
     });
 
@@ -255,6 +260,25 @@ function createPageRoutes(ctx) {
         else if (req.params.act === 'snooze') await mine.snooze(req.viewer.subject, id, (req.body || {}).minutes || 60);
         else await mine.remove(req.viewer.subject, id);
         return toMine(res);
+    });
+
+    // ── The calendars a person imports (plan L48 R3): plain forms, so the page works without its script ──
+    const calendarGuard = (req, res, next) => {
+        if (!signedIn(req)) return res.redirect(303, '/auth/login?next=%2Fme%23calendars');
+        if (!sameOrigin(req, config.baseUrl)) return page(req, res, { title: 'Not from this site', body: raw(views.notFound()) }, 403);
+        return next();
+    };
+    r.post('/me/calendars', express.urlencoded({ extended: false, limit: '8kb' }), calendarGuard, async (req, res) => {
+        const b = req.body || {};
+        const out = await calendarImports.add(req.viewer.subject, { url: b.url, name: b.name });
+        if (out.error) {
+            return res.redirect(303, `/me?cal_problem=${encodeURIComponent(out.error)}&cal_url=${encodeURIComponent(String(b.url || '').slice(0, 500))}`);
+        }
+        return res.redirect(303, '/me#calendars');
+    });
+    r.post('/me/calendars/:id/remove', express.urlencoded({ extended: false, limit: '2kb' }), calendarGuard, async (req, res) => {
+        await calendarImports.remove(req.viewer.subject, String(req.params.id || ''));
+        return res.redirect(303, '/me#calendars');
     });
 
     r.post('/me/feed/rotate', async (req, res) => {

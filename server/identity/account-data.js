@@ -24,6 +24,9 @@ const TABLES = [
     // The public Live username → Network subject map the import job uses to put a followed channel first. It is a
     // public channel fact, not a private one, so it is erased with the person and not exported.
     { table: 'today_channels', subject: 'subject', value: (usr) => usr, file: null, erase: 'delete' },
+    // The address of a calendar a person imported is theirs alone: it can carry a secret, so it is erased with the
+    // account and never exported.
+    { table: 'today_calendar_imports', subject: 'subject', value: (usr) => usr, file: null, erase: 'delete' },
 ];
 
 async function extraErase(t) {

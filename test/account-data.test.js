@@ -72,6 +72,12 @@ async function startNetworkStub() {
         await db.exec(`INSERT INTO today_briefs (subject, day, body, created_at) VALUES ($1, '2026-10-28'::date, '[]'::jsonb, now()), ($2, '2026-10-28'::date, '[]'::jsonb, now())`, [A, B]);
         await db.exec(`INSERT INTO today_idempotency (subject, key, event_id, created_at) VALUES ($1, 'a-key', 'tev_01JZ000000000000000000AA', now())`, [A]);
         await db.exec(`INSERT INTO today_outbox (event_id, topic, payload, created_at) VALUES ('evt_01JZ0000000000000000000A1', 'today.event.scheduled', '{"event_id":"tev_01JZ000000000000000000AA"}'::jsonb, now())`);
+        // The address of a calendar A imported: theirs alone, so it is never exported.
+        await db.exec(`INSERT INTO today_calendar_imports (id, subject, url, name, created_at) VALUES
+            ('cal_01JZ00000000000000000AA', $1, 'https://secret.example.com/a.ics', 'A calendar', now()),
+            ('cal_01JZ00000000000000000BB', $2, 'https://secret.example.com/b.ics', 'B calendar', now())`, [A, B]);
+        await db.exec(`INSERT INTO today_calendar_import_cache (import_id, body, fetched_at) VALUES
+            ('cal_01JZ00000000000000000AA', 'BEGIN:VCALENDAR', now())`);
 
         await check('an export carries only A\'s rows, and never the feed token', async () => {
             const res = await t.get('/internal/events', { method: 'POST', body: bodyOf(exportEvent), headers: { 'Content-Type': 'application/json', ...signDeliveryHeaders(bodyOf(exportEvent), SECRET) } });
@@ -87,6 +93,7 @@ async function startNetworkStub() {
             assert.ok(!all.includes('B stream'), 'nobody else\'s event');
             assert.ok(!all.includes('feedtokenA_fixture'), 'the feed token is never exported');
             assert.ok(!all.includes('feedtokenB_fixture'));
+            assert.ok(!all.includes('secret.example.com'), 'the address of an imported calendar is never exported');
             const events = part.body.files.find((f) => f.name === 'events.json').content;
             assert.deepStrictEqual(events.map((e) => e.id), ['tev_01JZ000000000000000000AA']);
             const reminders = part.body.files.find((f) => f.name === 'reminders.json').content;
@@ -103,6 +110,9 @@ async function startNetworkStub() {
             assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_feeds WHERE subject = $1', [A]), 0);
             assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_briefs WHERE subject = $1', [A]), 0);
             assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_idempotency WHERE subject = $1', [A]), 0);
+            assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_calendar_imports WHERE subject = $1', [A]), 0, 'the imported calendar goes with the account');
+            assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_calendar_import_cache WHERE import_id = $1', ['cal_01JZ00000000000000000AA']), 0, 'and the copy of it');
+            assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_calendar_imports WHERE subject = $1', [B]), 1, 'B\'s calendar stays');
             assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_events WHERE owner_subject = $1', [B]), 1, 'B\'s event stays');
             assert.strictEqual(await db.value('SELECT COUNT(*)::int AS n FROM today_reminders WHERE subject = $1', [B]), 1, 'B\'s own reminder stays');
             const confirmation = stub.calls.find((c) => c.url === `/internal/account-deletions/${DEL}/confirmations`);

@@ -71,6 +71,7 @@ async function createApp(opts = {}) {
     const brief = createBrief({ config, s, agenda, fetchImpl, log });
     const notifier = createNotifier({ config, s, fetchImpl, log });
     const mine = require('./my-reminders').createMyReminders({ s });
+    const calendarImports = require('./calendar-imports').createCalendarImports({ s, log, fetchImpl: opts.calendarFetch });
     const reminders = createReminders({ config, s, events, mine, notifier, log });
     const publisher = createPublisher({ config, s, fetchImpl, log });
     const imports = createImports({ config, s, fetchImpl, log, now: s.now });
@@ -85,7 +86,7 @@ async function createApp(opts = {}) {
 
     const ctx = {
         config, s, keys, sso, principal, events, feeds, follows, agenda, brief, notifier, reminders, mine, publisher,
-        imports, accountData, accountSend, consumer, log,
+        imports, calendarImports, accountData, accountSend, consumer, log,
     };
 
     const app = express();

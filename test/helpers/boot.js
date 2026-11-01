@@ -38,7 +38,7 @@ async function boot(opts = {}) {
     const { createStore } = require('../../server/db');
     const testdb = await require('./db').testDb();
     const store = createStore(testdb.db, { now: opts.now });
-    const built = await createApp({ config, store, log, telemetrySink: opts.telemetrySink, accountSend: opts.accountSend });
+    const built = await createApp({ config, store, log, telemetrySink: opts.telemetrySink, accountSend: opts.accountSend, calendarFetch: opts.calendarFetch });
     await built.ctx.keys.ensure();
     const server = await new Promise((resolve) => { const s = http.createServer(built.app); s.listen(0, '127.0.0.1', () => resolve(s)); });
     const base = `http://127.0.0.1:${server.address().port}`;

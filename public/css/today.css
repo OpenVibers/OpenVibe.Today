@@ -252,6 +252,10 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
 .td-wi.is-band { --k: color-mix(in srgb, var(--room-accent) 55%, #22c55e); }
 .td-wi.is-event { --k: #a78bfa; }
 .td-wi.is-stream { --k: #f43f5e; }
+.td-wi.is-import { --k: #38bdf8; }
+/* An imported event has no page of its own here: it is shown, not linked. */
+.td-wi a:not([href]) { cursor: default; }
+.td-wi a:not([href]):hover { background: color-mix(in srgb, var(--text-primary, #e8eef8) 4%, transparent); }
 .td-pweek { display: none; list-style: none; margin: 18px 0 0; padding: 0; }
 .td-pd { padding: 12px 0; border-top: 1px solid var(--border, #1f2d47); }
 .td-pd-h { margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 750; }
@@ -266,6 +270,11 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
   .td-wi-m { grid-column: 3; }
 }
 @media (max-width: 520px) { .td-quick { flex-direction: column; } .td-quick .ovk-btn { align-self: flex-start; } }
+/* The form that adds a calendar: the address, a name for it, and the button. */
+.td-cal-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px) auto; gap: 8px; margin-top: 10px; }
+.td-cal-form input { min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border, #1f2d47); background: var(--bg-primary, #0a0f1c); color: inherit; font: inherit; font-size: 1rem; }
+.td-cal-form input:focus { outline: 2px solid var(--room-strong, var(--accent, #4f8cff)); outline-offset: 1px; }
+@media (max-width: 640px) { .td-cal-form { grid-template-columns: minmax(0, 1fr); } }
 /* The week's lines read as text (the room's link colour belongs to links in prose), and their times line up. */
 .td-wrap .td-wi a, .td-wrap .td-wi-t { color: var(--text-primary, #e8eef8); }
 .td-wi time { min-width: 2.9em; }
