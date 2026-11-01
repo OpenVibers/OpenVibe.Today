@@ -115,7 +115,7 @@ function createPublicPageViews(ctx) {
 }
 
 function createPageRoutes(ctx) {
-    const { config, s, events, feeds, agenda, brief } = ctx;
+    const { config, s, events, feeds, agenda, brief, mine } = ctx;
     const r = asyncRouter();
     r.use(express.urlencoded({ extended: false, limit: '64kb' }));
     const base = () => String(config.baseUrl).replace(/\/+$/, '');
@@ -203,11 +203,33 @@ function createPageRoutes(ctx) {
         const a = await agenda.forSubject({ subject: p.subject, token: p.token, days: 14, now: s.now() });
         const reminders = await events.listReminders(p.subject);
         const token = await feeds.getOrCreate(p.subject);
+        const own = mine ? await mine.list(p.subject) : [];
         return page(req, res, {
             title: 'Your agenda',
             description: 'Your own events, the reminders you set, the channels you follow and your private calendar feed.',
-            body: raw(views.me({ name: req.viewer.displayName || req.viewer.username, agenda: a, reminders, feedUrl: feeds.url(config, token), now: s.now() })),
+            body: raw(views.me({ name: req.viewer.displayName || req.viewer.username, agenda: a, reminders, feedUrl: feeds.url(config, token), now: s.now(), mine: own, problem: String(req.query.problem || '').slice(0, 200) || null, said: String(req.query.said || '').slice(0, 500) })),
         });
+    });
+
+    // ── A person's own reminders (plan L48, R1): plain forms, so the page works without its script ──
+    const mineGuard = (req, res, next) => {
+        if (!signedIn(req)) return res.redirect(303, '/auth/login?next=%2Fme%23reminders');
+        if (!sameOrigin(req, config.baseUrl)) return page(req, res, { title: 'Not from this site', body: raw(views.notFound()) }, 403);
+        return next();
+    };
+    const toMine = (res, extra = '') => res.redirect(303, `/me${extra}#reminders`);
+    r.post('/me/reminders', express.urlencoded({ extended: false, limit: '8kb' }), mineGuard, async (req, res) => {
+        const b = req.body || {};
+        const out = await mine.create(req.viewer.subject, { text: b.text, tz: b.tz, source: 'today' });
+        if (out.error) return toMine(res, `?problem=${encodeURIComponent(out.error)}&said=${encodeURIComponent(String(b.text || '').slice(0, 500))}`);
+        return toMine(res);
+    });
+    r.post('/me/reminders/:id/:act(done|snooze|remove)', express.urlencoded({ extended: false, limit: '2kb' }), mineGuard, async (req, res) => {
+        const id = String(req.params.id || '');
+        if (req.params.act === 'done') await mine.done(req.viewer.subject, id);
+        else if (req.params.act === 'snooze') await mine.snooze(req.viewer.subject, id, (req.body || {}).minutes || 60);
+        else await mine.remove(req.viewer.subject, id);
+        return toMine(res);
     });
 
     r.post('/me/feed/rotate', async (req, res) => {

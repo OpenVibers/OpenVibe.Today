@@ -87,9 +87,40 @@ function createNotifier({ config, s, fetchImpl = globalThis.fetch, log = console
         return { ok: true, user_id: userId, title };
     }
 
+    /** A person's own reminder: their words as the title, a link back to where it came from (or their reminders). */
+    async function sendMine({ subject, reminder }) {
+        if (!canSend) throw new Error('TODAY_OAUTH_CLIENT_SECRET is not set: Today cannot send a notification');
+        const ids = await resolveUserIds([subject]);
+        const userId = ids.get(subject);
+        if (!userId) {
+            log.warn(`[OpenVibe.Today] reminder for ${subject}: Network has no user id for that subject`);
+            return { ok: false, reason: 'no_user' };
+        }
+        const base = String(config.baseUrl).replace(/\/+$/, '');
+        const body = {
+            user_id: userId,
+            type: 'TODAY_REMINDER',
+            category: 'system',
+            priority: 'normal',
+            icon: '⏰',
+            title: String(reminder.title).slice(0, 200),
+            ...(reminder.repeats ? { message: `${reminder.summary}. Snooze or stop it on openvibe.today.` } : {}),
+            service: 'today',
+            url: reminder.url || `${base}/me#reminders`,
+        };
+        const res = await fetchImpl(`${config.networkInternalUrl}/internal/notifications/push`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(await pushTokens.authHeaders()) },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) throw new Error(`notification push ${res.status}`);
+        return { ok: true, user_id: userId, title: body.title };
+    }
+
     function clear(subject = null) { if (subject) cache.delete(subject); else cache.clear(); }
 
-    return { sendReminder, resolveUserIds, clear, titleFor, canSend };
+    return { sendReminder, sendMine, resolveUserIds, clear, titleFor, canSend };
 }
 
 module.exports = { createNotifier };

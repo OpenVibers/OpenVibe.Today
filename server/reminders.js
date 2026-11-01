@@ -5,7 +5,7 @@
  * `UPDATE … SET sent_at = now() WHERE … AND sent_at IS NULL RETURNING`, so two processes never send twice. A send
  * failure puts the claim back for the next tick; a cancelled or done event's reminder never sends.
  */
-function createReminders({ config, s, events, notifier, log = console, intervalMs = 60_000 }) {
+function createReminders({ config, s, events, mine = null, notifier, log = console, intervalMs = 60_000 }) {
     let timer = null;
     const stats = { sent: 0, failed: 0, skipped: 0, last_error: null, last_run: null };
 
@@ -28,8 +28,28 @@ function createReminders({ config, s, events, notifier, log = console, intervalM
                 await events.releaseReminder(row.subject, row.event_id).catch(() => {});
             }
         }
+        // A person's own reminders (plan L48): claimed by moving next_at on, so a repeat is never sent twice.
+        let mineDue = 0;
+        if (mine) {
+            const rows = await mine.due(now);
+            mineDue = rows.length;
+            for (const row of rows) {
+                const claimed = await mine.claim(row, now);
+                if (!claimed) { skipped++; continue; }
+                try {
+                    const out = await notifier.sendMine({ subject: row.subject, reminder: mine.wire(claimed, { now }) });
+                    if (out && out.ok) { sent++; stats.sent++; } else { skipped++; stats.skipped++; }
+                } catch (err) {
+                    failed++;
+                    stats.failed++;
+                    stats.last_error = String((err && err.message) || err).slice(0, 300);
+                    log.warn(`[OpenVibe.Today] reminder ${row.id} not sent: ${stats.last_error}`);
+                    await mine.release(row).catch(() => {});
+                }
+            }
+        }
         stats.last_run = new Date(now).toISOString();
-        return { due: due.length, sent, failed, skipped };
+        return { due: due.length + mineDue, sent, failed, skipped };
     }
 
     function start() {

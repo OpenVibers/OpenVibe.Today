@@ -221,16 +221,43 @@ ${own && !done ? `<form method="post" action="/e/${esc(e.id)}/cancel" class="td-
 </article></div>`;
 }
 
-function me({ name, agenda = { events: [] }, reminders = [], feedUrl = '', now = Date.now() } = {}) {
+// A person's own reminders (plan L48, R1): one box in plain words with a preview of what it understood, and the list.
+const SOURCE_NAMES = { today: '', vibe: 'Set by Vibe', live: 'From Live', work: 'From Work', deals: 'From Deals', coupons: 'From Coupons', watch: 'From Watch', chat: 'From Chat' };
+function myReminders({ mine = [], problem = null, said = '' } = {}) {
+    const active = mine.filter((r) => r.status === 'active');
+    const done = mine.filter((r) => r.status === 'done');
+    const act = (r, path, label, extra = '') => `<form method="post" action="/me/reminders/${esc(r.id)}/${path}" class="td-inline">${extra}<button class="td-chip-btn" type="submit">${esc(label)}</button></form>`;
+    const row = (r) => `<li class="td-mine-row${r.status === 'done' ? ' is-done' : ''}">
+<span class="td-mine-ico" aria-hidden="true">${kit.icon(r.repeats ? 'clock' : 'bell')}</span>
+<span class="td-mine-main"><b>${r.url ? `<a href="${esc(r.url)}">${esc(r.title)}</a>` : esc(r.title)}</b>
+<small>${esc(r.summary)}${r.status === 'active' && r.next_at ? ` · next <time datetime="${esc(r.next_at)}" data-local="when">${esc(r.next_at.slice(0, 16).replace('T', ' '))} UTC</time>` : ''}${SOURCE_NAMES[r.source] ? ` · ${esc(SOURCE_NAMES[r.source])}` : ''}</small></span>
+<span class="td-mine-acts">${r.status === 'active' ? `${act(r, 'snooze', 'Snooze 1 h', '<input type="hidden" name="minutes" value="60">')}${act(r, 'done', r.repeats ? 'Stop' : 'Done')}` : ''}${act(r, 'remove', 'Remove')}</span>
+</li>`;
+    return `<section class="td-card td-remind" id="reminders" aria-labelledby="td-mine-h">
+<h2 id="td-mine-h">${kit.icon('bell')}Remind me</h2>
+<form method="post" action="/me/reminders" class="td-remind-form" data-remind-preview="/api/v1/reminders/parse">
+<input type="hidden" name="tz" value="UTC" data-tz>
+<label class="td-sr" for="td-remind-text">What, and when, in your own words</label>
+<input id="td-remind-text" name="text" required maxlength="500" autocomplete="off" value="${esc(said)}" placeholder="Stretch every 2 hours from 9 to 5">
+<button class="ovk-btn ovk-btn--primary" type="submit">Remind me</button>
+<p class="td-remind-out${problem ? ' is-bad' : ''}" data-remind-out aria-live="polite">${problem ? esc(problem) : 'Try “take my meds every day at 9 am and 9 pm”, “call mom on Sunday at 6 pm” or “pay rent on the 1st of every month”.'}</p>
+</form>
+${active.length ? `<ul class="td-mine">${active.map(row).join('')}</ul>` : '<p class="td-fine">Nothing set yet. Reminders arrive in your bell on every OpenVibe site, and as a push notification if you allowed them.</p>'}
+${done.length ? `<details class="td-mine-done"><summary>Done (${done.length})</summary><ul class="td-mine">${done.map(row).join('')}</ul></details>` : ''}
+</section>`;
+}
+
+function me({ name, agenda = { events: [] }, reminders = [], feedUrl = '', now = Date.now(), mine = [], problem = null, said = '' } = {}) {
     const webcal = String(feedUrl).replace(/^https?:/, 'webcal:');
     return `<div class="td-wrap td-page-pad" id="td-me">
 <header class="td-page-h"><p class="td-kicker">Your agenda</p><h1>The next two weeks</h1>
 <p class="td-lede">Your own events, the ones you set reminders on, and the channels you follow, ${esc(name || 'you')}.</p>
 <div class="td-acts">${kit.button({ href: '/schedule', label: 'Schedule a stream', kind: 'primary' })}${kit.button({ href: '/brief', label: 'Your brief', kind: 'quiet' })}</div></header>
+${myReminders({ mine, problem, said })}
 ${agenda.follows_unavailable ? '<p class="td-note" role="status">OpenVibe.Network did not answer, so the channels you follow are missing for a moment. Your own and reminded events are all here.</p>' : ''}
 <div class="td-me-grid"><div>${days(agenda.events || [], { now, empty: 'Nothing in the next two weeks. Follow a channel on Live, or set a reminder on something coming up.' })}</div>
 <aside class="td-side">
-<section class="td-card" aria-labelledby="td-rem-h"><h2 id="td-rem-h">${kit.icon('bell')}Reminders</h2>
+<section class="td-card" aria-labelledby="td-rem-h"><h2 id="td-rem-h">${kit.icon('bell')}Before an event</h2>
 ${reminders.length ? `<ul class="td-rems">${reminders.map((x) => `<li><a href="/e/${esc(x.event_id)}">${esc(x.event.title)}</a><small><time datetime="${esc(x.remind_at)}" data-local="time">${esc(timeText(parts(x.remind_at, x.event.tz)))} ${esc(parts(x.remind_at, x.event.tz).timeZoneName)}</time>, ${esc(dayLabel(x.remind_at, x.event.tz, now).toLowerCase())}</small></li>`).join('')}</ul>` : '<p class="td-fine">None yet. Open anything coming up and tap Remind me.</p>'}
 </section>
 <section class="td-card" aria-labelledby="td-feed-h"><h2 id="td-feed-h">${kit.icon('calendar')}Your calendar feed</h2>
