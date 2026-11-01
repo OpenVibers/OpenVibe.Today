@@ -8,7 +8,21 @@
     var zone = (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } })();
     function fmt(d, opts) { try { return new Intl.DateTimeFormat(undefined, opts).format(d); } catch (e) { return d.toISOString(); } }
 
+    // Your week (plan L48 R3) is drawn by the server in your zone: keep it in a cookie, and if this week page was drawn
+    // in another one, ask again once in yours.
+    try {
+        if (!/(?:^|; )td_tz=/.test(document.cookie) || decodeURIComponent((document.cookie.match(/(?:^|; )td_tz=([^;]*)/) || [])[1] || '') !== zone) {
+            document.cookie = 'td_tz=' + encodeURIComponent(zone) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
+            var wk = document.getElementById('td-week');
+            if (wk && wk.getAttribute('data-tz') !== zone && !/[?&]tz=/.test(location.search) && !sessionStorage.getItem('td-week-tz')) {
+                sessionStorage.setItem('td-week-tz', '1');
+                location.replace(location.pathname + location.search + (location.search ? '&' : '?') + 'tz=' + encodeURIComponent(zone));
+            }
+        }
+    } catch (e) { /* no cookies: the week is drawn in the zone of the newest reminder */ }
+
     function run() {
+        document.querySelectorAll('input[data-tz]').forEach(function (el) { el.value = zone; });
         // "Your time" on an event page.
         document.querySelectorAll('[data-local="range"]').forEach(function (el) {
             var a = new Date(el.getAttribute('data-start')), b = new Date(el.getAttribute('data-end'));

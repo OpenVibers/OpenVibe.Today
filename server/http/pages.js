@@ -211,6 +211,29 @@ function createPageRoutes(ctx) {
         });
     });
 
+    // ── Your week (plan L48 R3): seven days in your own time zone ──
+    // The zone: ?tz=, else the td_tz cookie today.js keeps from the browser, else the zone of the person's newest
+    // reminder, else UTC.
+    r.get('/me/week', async (req, res) => {
+        if (!signedIn(req)) return page(req, res, { title: 'Your week', body: raw(views.signIn({ title: 'Your week', text: 'Your reminders, your events and the streams of the channels you follow, day by day.', next: '/me/week' })) }, 401);
+        const p = person(req);
+        const own = mine ? await mine.list(p.subject) : [];
+        const asked = typeof req.query.tz === 'string' ? req.query.tz : (req.cookies && req.cookies.td_tz) || '';
+        const tz = require('../when').validTz(asked) ? asked : ((own.find((x) => x.tz) || {}).tz || 'UTC');
+        const start = typeof req.query.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.start) ? req.query.start : null;
+        const first = require('../week').build({ tz, start, now: s.now(), reminders: [], events: [] });
+        const rows = await agenda.windowFor({ subject: p.subject, token: p.token, fromMs: Date.parse(first.from), toMs: Date.parse(first.to), now: s.now() });
+        const { wire: wireEvent } = require('../events/store');
+        const reminded = new Set((await s.db.many('SELECT event_id FROM today_reminders WHERE subject = $1', [p.subject])).map((x) => x.event_id));
+        const events = rows.map((x) => ({ ...wireEvent(x), own: x.owner_subject === p.subject, reminded: reminded.has(x.id) }));
+        const w = require('../week').build({ tz, start, now: s.now(), reminders: own, events });
+        return page(req, res, {
+            title: 'Your week',
+            description: 'Your reminders, your events and the streams of the channels you follow, day by day.',
+            body: raw(views.week({ name: req.viewer.displayName || req.viewer.username, week: w })),
+        });
+    });
+
     // ── A person's own reminders (plan L48, R1): plain forms, so the page works without its script ──
     const mineGuard = (req, res, next) => {
         if (!signedIn(req)) return res.redirect(303, '/auth/login?next=%2Fme%23reminders');
@@ -222,6 +245,8 @@ function createPageRoutes(ctx) {
         const b = req.body || {};
         const out = await mine.create(req.viewer.subject, { text: b.text, tz: b.tz, source: 'today' });
         if (out.error) return toMine(res, `?problem=${encodeURIComponent(out.error)}&said=${encodeURIComponent(String(b.text || '').slice(0, 500))}`);
+        // Added from the week: back to the week, the one the reminder lands in.
+        if (b.back === 'week') return res.redirect(303, '/me/week');
         return toMine(res);
     });
     r.post('/me/reminders/:id/:act(done|snooze|remove)', express.urlencoded({ extended: false, limit: '2kb' }), mineGuard, async (req, res) => {
