@@ -36,7 +36,7 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .td-pill.is-live { background: var(--live-red, #e11d48); color: #fff; }
 .td-pill.is-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: td-pulse 1.4s ease-in-out infinite; }
 .td-pill.is-off { background: color-mix(in srgb, var(--text-muted, #7386a3) 22%, transparent); color: var(--text-secondary, #96a7c2); }
-.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: var(--text-muted, #7386a3); }
+.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: var(--text-secondary, #9aa7bd); }
 .td-tag { display: inline-flex; padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-weight: 700; color: var(--text-secondary, #96a7c2); border: 1px solid var(--border, #1f2d47); white-space: nowrap; }
 .td-tag.is-remind { border-color: color-mix(in srgb, var(--room-accent) 55%, var(--border, #1f2d47)); color: var(--room-strong); }
 @keyframes td-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
