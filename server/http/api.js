@@ -53,6 +53,29 @@ function createApi(ctx) {
     }
     const requirePerson = (req, res, next) => (person(req, res) ? next() : undefined);
 
+    // A person's own reminders: the person (as for everything else here), or a first-party service holding
+    // today.reminder.write that names the person with X-OV-Subject (Vibe's "remind me…", plan L48). An app or a
+    // module never can, and a service acts for one person per request. req.actor = { subject, source }.
+    const USR = /^usr_[0-9A-HJKMNP-TV-Z]{26}$/;
+    function reminderActor(req, res, next) {
+        const p = req.principal;
+        if (p.kind === 'user') {
+            if (!person(req, res)) return undefined;
+            req.actor = { subject: p.subject, source: null };
+            return next();
+        }
+        if (p.kind === 'app') {
+            const caps = Array.isArray(p.claims && p.claims.cap) ? p.claims.cap : String((p.claims && p.claims.cap) || '').split(/[\s,]+/);
+            if (!String(p.requester || '').startsWith('service:')) return refuse(res, 403, 'today.person_required', 'Only a first-party service may set a person\'s reminders, for that person.');
+            if (!caps.includes('today.reminder.write')) return refuse(res, 403, 'capability.denied', 'This service does not hold today.reminder.write.');
+            const named = String(req.get('x-ov-subject') || '');
+            if (!USR.test(named)) return refuse(res, 400, 'today.subject_required', 'Name the person with X-OV-Subject: usr_…');
+            req.actor = { subject: named, source: String(p.requester).slice('service:'.length).replace(/[^a-z0-9-]/g, '').slice(0, 30) || null };
+            return next();
+        }
+        return refuse(res, 401, 'today.sign_in_required', 'Sign in at openvibe.today, or send a person\'s Network token as a Bearer.');
+    }
+
     function jsonError(res, out) {
         return res.status(out.status || 400).json({ code: out.code || 'today.invalid', ...(out.field ? { field: out.field } : {}), message: out.message || 'invalid request' });
     }
@@ -144,29 +167,29 @@ function createApi(ctx) {
 
     // ── A person's own reminders (plan L48, R1) ────────────
     const body = (req) => (req.body && typeof req.body === 'object' ? req.body : {});
-    r.post('/reminders/parse', requirePerson, (req, res) => {
+    r.post('/reminders/parse', reminderActor, (req, res) => {
         const b = body(req);
         const out = mine.preview({ text: b.text, tz: b.tz });
         return out.error ? res.status(422).json({ error: out.error }) : res.json(out);
     });
-    r.get('/reminders', requirePerson, async (req, res) => {
-        res.set('Cache-Control', 'private, no-store').json({ reminders: await mine.list(req.principal.subject) });
+    r.get('/reminders', reminderActor, async (req, res) => {
+        res.set('Cache-Control', 'private, no-store').json({ reminders: await mine.list(req.actor.subject) });
     });
-    r.post('/reminders', requirePerson, async (req, res) => {
+    r.post('/reminders', reminderActor, async (req, res) => {
         const b = body(req);
-        const out = await mine.create(req.principal.subject, { text: b.text, tz: b.tz, url: b.url, source: b.source });
+        const out = await mine.create(req.actor.subject, { text: b.text, tz: b.tz, url: b.url, source: b.source || req.actor.source || 'today' });
         return out.error ? res.status(422).json({ error: out.error }) : res.status(201).json(out);
     });
-    r.post('/reminders/:id/done', requirePerson, async (req, res) => {
-        const out = await mine.done(req.principal.subject, String(req.params.id));
+    r.post('/reminders/:id/done', reminderActor, async (req, res) => {
+        const out = await mine.done(req.actor.subject, String(req.params.id));
         return out ? res.json(out) : res.status(404).json({ error: 'No such reminder' });
     });
-    r.post('/reminders/:id/snooze', requirePerson, async (req, res) => {
-        const out = await mine.snooze(req.principal.subject, String(req.params.id), body(req).minutes);
+    r.post('/reminders/:id/snooze', reminderActor, async (req, res) => {
+        const out = await mine.snooze(req.actor.subject, String(req.params.id), body(req).minutes);
         return out ? res.json(out) : res.status(404).json({ error: 'No such reminder' });
     });
-    r.delete('/reminders/:id', requirePerson, async (req, res) => {
-        return (await mine.remove(req.principal.subject, String(req.params.id))) ? res.status(204).end() : res.status(404).json({ error: 'No such reminder' });
+    r.delete('/reminders/:id', reminderActor, async (req, res) => {
+        return (await mine.remove(req.actor.subject, String(req.params.id))) ? res.status(204).end() : res.status(404).json({ error: 'No such reminder' });
     });
 
     r.get('/me/agenda', requirePerson, async (req, res) => {

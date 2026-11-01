@@ -86,6 +86,24 @@ const when = require('../server/when');
             assert.strictEqual(Number(repRow.sent_count), 1);
         });
 
+        await check('a first-party service with today.reminder.write sets a person\'s reminder for them, and nothing else can', async () => {
+            const now = Math.floor(Date.now() / 1000);
+            const token = (sub, cap) => t.network.signJwt({ iss: t.network.issuer(), sub, actor_type: sub.startsWith('svc:') ? 'service' : 'app', aud: ['openvibe.today'], cap, iat: now, exp: now + 300, jti: `tok_${Math.random().toString(36).slice(2)}` });
+            const vibe = token('svc:chat', ['today.reminder.write']);
+            const call = (tok, subject, json) => t.get('/api/v1/reminders', { headers: { authorization: `Bearer ${tok}`, ...(subject ? { 'x-ov-subject': subject } : {}) }, ...(json ? { json } : {}) });
+            const made = await call(vibe, alice.subject, { text: 'stand up and stretch every hour', tz: 'UTC' });
+            assert.strictEqual(made.status, 201, made.text);
+            assert.strictEqual(made.json().source, 'chat', 'it says which site set it');
+            assert.strictEqual(await db.value('SELECT subject FROM today_my_reminders WHERE id = $1', [made.json().id]), alice.subject, 'it is the named person\'s');
+            const listed = (await call(vibe, alice.subject)).json().reminders;
+            assert.ok(listed.some((x) => x.id === made.json().id) && listed.every((x) => true));
+            assert.ok(!(await call(vibe, bob.subject)).json().reminders.some((x) => x.id === made.json().id), 'another person\'s list never shows it');
+            assert.strictEqual((await call(token('svc:games', []), alice.subject, { text: 'x at 3pm', tz: 'UTC' })).status, 403, 'a service without the capability');
+            assert.ok([401, 403].includes((await call(token('app:01J8Z3Q4R5S6T7V8W9X0Y1Z2A1', ['today.reminder.write']), alice.subject, { text: 'x at 3pm', tz: 'UTC' })).status), 'an app never');
+            assert.strictEqual((await call(vibe, null, { text: 'x at 3pm', tz: 'UTC' })).status, 400, 'the person must be named');
+            assert.strictEqual((await t.get('/api/v1/events', { headers: { authorization: `Bearer ${vibe}` }, json: { kind: 'event', title: 'x', starts_at: new Date(Date.now() + 3600e3).toISOString(), tz: 'UTC' } })).status, 403, 'and it reaches nothing but reminders');
+        });
+
         await check('/me has the box and the list, and its forms work without the script', async () => {
             const me = await t.get('/me', { as: bob });
             assert.match(me.text, /<section class="td-card td-remind" id="reminders"/);
