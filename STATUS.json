@@ -10,11 +10,11 @@
   "domain": "openvibe.today",
   "contracts": "openvibe-contracts v0.233.0",
   "sdk": "openvibe-sdk v0.74.0",
-  "shared": "openvibe-shared v4.85.0",
+  "shared": "openvibe-shared v4.86.0",
   "packages": [
     "openvibe-contracts v0.233.0",
     "openvibe-sdk v0.74.0",
-    "openvibe-shared v4.85.0"
+    "openvibe-shared v4.86.0"
   ],
   "summary": "OpenVibe.Today is the network's time bus and calendar authority. A person schedules a stream (on their Live channel) or a plain event; the public schedule and a channel's ICS feed are readable without an account, a private token feed is one URL per person and rotation invalidates the old one, and reminders arrive through OpenVibe.Network. Events move from scheduled to live and done as OpenVibe.Live says so over OpenVibe.Events, while the daily brief is built from the agenda, today's reminders and OpenVibe.Live's public Rundown.",
   "works": [
