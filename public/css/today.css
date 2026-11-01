@@ -253,6 +253,11 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
 .td-wi.is-event { --k: #a78bfa; }
 .td-wi.is-stream { --k: #f43f5e; }
 .td-wi.is-import { --k: #38bdf8; }
+.td-wi.is-holiday { --k: #fbbf24; }
+.td-holsel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 0; }
+.td-holsel label { font-size: 12.5px; color: var(--text-secondary, #96a7c2); }
+.td-holsel select { min-height: 34px; padding: 4px 10px; border-radius: 10px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #0e1626); color: var(--text-primary, #e8eef8); font: inherit; font-size: 13px; }
+.td-holsel select:focus-visible { outline: 2px solid var(--room-accent); outline-offset: 1px; }
 /* An imported event has no page of its own here: it is shown, not linked. */
 .td-wi a:not([href]) { cursor: default; }
 .td-wi a:not([href]):hover { background: color-mix(in srgb, var(--text-primary, #e8eef8) 4%, transparent); }

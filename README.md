@@ -173,7 +173,7 @@ HTML and stable `td-` ids/classes:
 | `/@:username` | a channel's schedule, with Subscribe (`webcal://`) and the `.ics` |
 | `/e/:id` | one event, with `application/ld+json` `Event` (name, startDate, endDate, eventStatus, eventAttendanceMode, VirtualLocation, organizer); Remind me (`POST /e/:id/remind`, `/remind/remove`), Add to calendar (`/e/:id.ics`), Watch on Live, and Cancel for its owner (`POST /e/:id/cancel`) |
 | `/me` | agenda, reminders, the calendars you imported (a form and a list, with a Remove button), the feed URL and its rotate form |
-| `/me/week` | your week: seven days from Monday in your own zone — your reminders at each time they fire, your events, the streams of the channels you follow, and the events of the calendars you imported |
+| `/me/week` | your week: seven days from Monday in your own zone — your reminders at each time they fire, your events, the streams of the channels you follow, the events of the calendars you imported, and the public holidays of the country you choose (a small select sets it) |
 | `/brief` | today's brief |
 | `/schedule` | a plain form that schedules a stream or an event: the start is wall time in the chosen zone (the device's, with JavaScript), plus a length (`POST /schedule` → 303 `/e/:id`) |
 | `/developers` | the API |
@@ -200,7 +200,10 @@ signature), the outbox (fixed id, backoff, restart), reminders (one notification
 (sections, Rundown failure, one per day), pages, sign-in, account export/deletion and discovery. The imported calendars
 are tested on their own: reading a calendar (a zone, an all-day event, a weekly rule, an excluded day, a cancelled
 event, a clock change), refusing a private address and a body that is too big, the week that shows them, the five
-addresses a person may keep, and a form post from another site refused.
+addresses a person may keep, and a form post from another site refused. The public holidays are tested on their
+own too: the rules for several years (Thanksgiving, Memorial Day, a July 4 on a weekend, Easter Monday, the August
+bank holiday, Pfingstmontag, a fixed Japanese holiday, Carnaval), the country a zone says, the `?country=` and the
+cookie, an unknown code ignored, and the week with the holiday at the top of its day.
 
 ## Imports
 
@@ -228,6 +231,27 @@ all-day `DATE`, `DURATION`, `EXDATE`, `STATUS:CANCELLED`, and a `RRULE` that is 
 in it (`BYMONTH`, `BYSETPOS`, an ordinal `BYDAY` such as `2FR`), a zone this server does not know and an event
 with no `DTSTART` are left out and counted, never guessed at. The address belongs to the person: it is never
 exported and it goes with the account.
+
+## Public holidays
+
+Your week shows the public holidays of a country: an all-day line at the top of its day, with the country code in
+small letters. `server/holidays.js` works them out by rule, with no network call and no dependency: a fixed date
+(1 January), the nth weekday of a month (the fourth Thursday of November is Thanksgiving Day), the last weekday of a
+month (the last Monday of May is Memorial Day) and Easter with the days counted from it (Good Friday is two days
+before Easter, Whit Monday fifty after). A holiday that lands on a weekend is moved the way that country moves it:
+the United States takes the Friday before a Saturday holiday and the Monday after a Sunday one; Britain, Canada,
+Ireland and Australia take the Monday; New Zealand the Monday or the Tuesday.
+
+The country is the one the person asks for: the `?country=` of the week, else the `td_country` cookie, else the one
+their time zone says (`Europe/Berlin` → Germany). The little select on the week page sets the cookie with a plain
+form (`POST /me/week/country`, same-origin, no JavaScript); a code this service does not know is ignored, and a
+zone that says nothing (`UTC`) leaves the person without holidays until they choose.
+
+The lists are the countries' own: the United States' federal holidays, Canada's statutory ones, the England and
+Wales bank holidays, Ireland's public holidays, Australia's national eight, New Zealand's Mondayised ones,
+Germany's, France's, Spain's, Italy's, the Netherlands', Brazil's, Mexico's días de descanso obligatorio, India's
+three gazetted ones and Japan's. Each country keeps the comment that says where its list comes from, and a country
+whose list cannot be stated is left out rather than guessed at.
 
 ## Deploy
 

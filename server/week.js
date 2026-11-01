@@ -5,10 +5,11 @@
  *   - their own reminders (server/my-reminders.js): each time a rule fires that week, except a rule that fires every
  *     few minutes or hours (interval), which is one line a day with its span ("Every 2 hours, 9:00–17:00");
  *   - their events, the events they set a reminder on, and the events of the channels they follow (server/agenda.js);
- *   - the events of the calendars they imported (server/calendar-imports.js), each with the calendar's short name.
+ *   - the events of the calendars they imported (server/calendar-imports.js), each with the calendar's short name;
+ *   - the public holidays of their country (server/holidays.js), each at the top of its day.
  *
- *   build({ tz, start, now, reminders, events, imports }) → { tz, start, prev, next, thisWeek, days: [{ key, label,
- *                                                    date, today, items: [{ kind, at, time, title, href, … }] }] }
+ *   build({ tz, start, now, reminders, events, imports, holidays }) → { tz, start, prev, next, thisWeek, days: [{ key,
+ *                                                    label, date, today, items: [{ kind, at, time, title, href, … }] }] }
  * Pure: the callers fetch, this arranges. tz is an IANA zone (UTC when unknown); start is a YYYY-MM-DD (any day of the
  * week it is in) or null for this week.
  */
@@ -26,7 +27,7 @@ function addDays(y, m, d, n) {
 }
 const clock = (p) => `${p.h}:${pad(p.min)}`;
 
-function build({ tz = 'UTC', start = null, now = Date.now(), reminders = [], events = [], imports = [] } = {}) {
+function build({ tz = 'UTC', start = null, now = Date.now(), reminders = [], events = [], imports = [], holidays = [] } = {}) {
     const zone = when.validTz(tz) ? tz : 'UTC';
     const today = when.partsIn(new Date(now), zone);
     // The Monday of the week asked for (or this one).
@@ -79,6 +80,19 @@ function build({ tz = 'UTC', start = null, now = Date.now(), reminders = [], eve
         if (!day) continue;
         day.items.push({ kind: e.own ? 'event' : 'stream', at: new Date(at).toISOString(), time: clock(when.partsIn(new Date(at), zone)), title: e.title, channel: e.channel || null, live: e.status === 'live', reminded: !!e.reminded, href: `/e/${e.id}`, id: e.id });
     }
+    // The public holidays of their country: an all-day item at the top of its day, like an imported all-day event.
+    for (const h of holidays || []) {
+        if (!h || typeof h.date !== 'string') continue;
+        const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(h.date);
+        if (!d) continue;
+        const day = days.find((x) => x.key === h.date);
+        if (!day) continue;
+        day.items.push({
+            kind: 'holiday', at: when.atLocal(+d[1], +d[2], +d[3], 0, 0, zone).toISOString(),
+            time: 'All day', allDay: true, title: h.name || 'A public holiday',
+            country: h.country || null, href: null,
+        });
+    }
     // The calendars they imported: their own kind, in the person's zone. An all-day event sits at the top of its day.
     for (const it of imports || []) {
         if (!it) continue;
@@ -102,7 +116,9 @@ function build({ tz = 'UTC', start = null, now = Date.now(), reminders = [], eve
         }
         day.items.push({ kind: 'import', at, time, allDay: !!it.allDay, title: it.title || 'An event', calendar: it.calendar || null, href: null });
     }
-    days.forEach((d) => d.items.sort((a, b) => (!!a.allDay !== !!b.allDay ? (a.allDay ? -1 : 1) : (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))));
+    // The order of a day: the holidays first, then the all-day events, then the hours.
+    const rank = (it) => (it.allDay ? (it.kind === 'holiday' ? 0 : 1) : 2);
+    days.forEach((d) => d.items.sort((a, b) => (rank(a) - rank(b) || (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))));
     const prev = addDays(mon.y, mon.m, mon.d, -7), next = addDays(mon.y, mon.m, mon.d, 7);
     const thisMon = addDays(today.y, today.m, today.d, -((today.dow || 1) - 1));
     return {
