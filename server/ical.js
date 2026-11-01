@@ -265,8 +265,9 @@ function expand(plan, rule, exdates, window) {
     let untilAt = null;
     let untilDay = null;
     if (rule.until) {
-        if (rule.until.kind === 'date') untilDay = keyOf(rule.until);
+        if (plan.allDay) untilDay = keyOf(rule.until);
         else if (rule.until.utc) untilAt = Date.UTC(rule.until.y, rule.until.m - 1, rule.until.d, rule.until.h, rule.until.min, rule.until.s);
+        else if (rule.until.kind === 'date') untilAt = instantOf({ y: rule.until.y, m: rule.until.m, d: rule.until.d, h: 23, min: 59, s: 59 }, plan.zone);
         else untilAt = instantOf(rule.until, plan.zone);
     }
 

@@ -61,6 +61,15 @@ const privateLookup = (host, opts, cb) => cb(null, [{ address: '10.0.0.5', famil
         assert.strictEqual(out.skipped.cancelled, 1);
     });
 
+    await check('a rule ends at its UNTIL', () => {
+        const allDay = cal(...vevent('UID:1', 'SUMMARY:Every day', 'DTSTART;VALUE=DATE:20261101', 'RRULE:FREQ=DAILY;UNTIL=20261104'));
+        const out = ical.occurrences(allDay, { from: Date.parse('2026-11-01T00:00:00Z'), to: Date.parse('2026-12-01T00:00:00Z'), tz: 'UTC' });
+        assert.deepStrictEqual(out.events.map((e) => e.date), ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'], 'the fourth day is the last');
+        const timed = cal(...vevent('UID:2', 'SUMMARY:Until', 'DTSTART;TZID=Europe/Paris:20261101T090000', 'RRULE:FREQ=DAILY;UNTIL=20261104T000000Z'));
+        const out2 = ical.occurrences(timed, { from: Date.parse('2026-11-01T00:00:00Z'), to: Date.parse('2026-12-01T00:00:00Z'), tz: 'Europe/Paris' });
+        assert.strictEqual(out2.events.length, 3, 'the fourth morning is past the UNTIL');
+    });
+
     await check('a rule that is too clever is left out, not guessed at', () => {
         const ics = cal(
             ...vevent('UID:1', 'SUMMARY:Second Friday', 'DTSTART;TZID=Europe/Paris:20261101T090000', 'RRULE:FREQ=MONTHLY;BYDAY=2FR'),
