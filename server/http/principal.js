@@ -21,7 +21,8 @@ const PRINCIPAL_SUB = /^(svc|app|mod|agent):/;
 const PROJECT_RE = /^prj_[0-9A-HJKMNP-TV-Z]{26}$/;
 
 // Today's routes are all a person acting for themself, or a public read. No capability is declared.
-const CAPABILITIES = [];
+// today.reminder.write (Contracts 0.267.0, plan L48): a first-party service sets a person's own reminders for them.
+const CAPABILITIES = ['today.reminder.write'];
 
 function decodePayload(token) {
     const parts = String(token || '').split('.');
