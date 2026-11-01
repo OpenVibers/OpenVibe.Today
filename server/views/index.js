@@ -8,6 +8,7 @@
  *   channel({ username, rows, now })                 a channel's schedule and its calendar
  *   event({ e, end, reminder, own, signedIn, path }) one event: when, Remind, Add to calendar, Watch, Cancel (owner)
  *   me({ name, agenda, reminders, feedUrl, now })    the person's agenda, reminders and private feed
+ *   week({ name, week })                             the person's week, day by day (server/week.js, plan L48 R3)
  *   brief({ out, name, tz })                         the day's brief
  *   schedule({ values, problem, zones })             the schedule form
  *   signIn({ title, text, next })                    a page that needs an account
@@ -252,7 +253,7 @@ function me({ name, agenda = { events: [] }, reminders = [], feedUrl = '', now =
     return `<div class="td-wrap td-page-pad" id="td-me">
 <header class="td-page-h"><p class="td-kicker">Your agenda</p><h1>The next two weeks</h1>
 <p class="td-lede">Your own events, the ones you set reminders on, and the channels you follow, ${esc(name || 'you')}.</p>
-<div class="td-acts">${kit.button({ href: '/schedule', label: 'Schedule a stream', kind: 'primary' })}${kit.button({ href: '/brief', label: 'Your brief', kind: 'quiet' })}</div></header>
+<div class="td-acts">${kit.button({ href: '/me/week', label: 'Your week', kind: 'primary' })}${kit.button({ href: '/schedule', label: 'Schedule a stream', kind: 'quiet' })}${kit.button({ href: '/brief', label: 'Your brief', kind: 'quiet' })}</div></header>
 ${myReminders({ mine, problem, said })}
 ${agenda.follows_unavailable ? '<p class="td-note" role="status">OpenVibe.Network did not answer, so the channels you follow are missing for a moment. Your own and reminded events are all here.</p>' : ''}
 <div class="td-me-grid"><div>${days(agenda.events || [], { now, empty: 'Nothing in the next two weeks. Follow a channel on Live, or set a reminder on something coming up.' })}</div>
@@ -266,6 +267,46 @@ ${reminders.length ? `<ul class="td-rems">${reminders.map((x) => `<li><a href="/
 <div class="td-acts"><a class="ovk-btn ovk-btn--primary ovk-btn--small" href="${esc(webcal)}">Subscribe</a>
 <form method="post" action="/me/feed/rotate" class="td-inline" data-confirm="Make a new link? Calendars using the old one stop updating."><button class="ovk-btn ovk-btn--quiet ovk-btn--small" type="submit">New link</button></form></div>
 </section></aside></div>
+</div>`;
+}
+
+/**
+ * The person's week (plan L48 R3): seven days from Monday in their own time zone. On a computer, seven columns; on a
+ * phone, the days one under another, with the empty ones said in one line. Each line is a time, what it is, and a
+ * mark for its kind: a reminder (once or repeating), a repeating reminder's span for the day, their own event, or a
+ * stream of a channel they follow.
+ */
+function week({ name, week: w }) {
+    const KIND = { reminder: ['bell', 'Reminder'], band: ['retry', 'Repeats'], event: ['calendar', 'Your event'], stream: ['live', 'Stream'] };
+    const item = (it) => {
+        const [icon, word] = KIND[it.kind] || KIND.reminder;
+        const meta = it.kind === 'band' ? it.summary : it.kind === 'stream' ? (it.channel ? `@${it.channel}` : word) : it.kind === 'reminder' && it.repeats ? 'Repeats' : word;
+        return `<li class="td-wi is-${esc(it.kind)}${it.live ? ' is-live' : ''}"><a href="${esc(it.href)}"><span class="td-wi-k" aria-hidden="true">${kit.icon(icon)}</span><time datetime="${esc(it.at)}">${esc(it.time)}</time><span class="td-wi-t">${esc(it.title)}</span><span class="td-wi-m">${it.live ? '<span class="td-pill is-live">Live now</span>' : ''}<span class="ovk-sr">${esc(word)}: </span>${esc(meta)}</span></a></li>`;
+    };
+    // On a phone, a run of empty days is one line ("Nothing on Sat and Sun").
+    const runs = [];
+    for (const d of w.days) {
+        const last = runs[runs.length - 1];
+        if (!d.items.length && !d.today && last && last.empty) last.days.push(d); else runs.push({ empty: !d.items.length && !d.today, days: [d] });
+    }
+    const list = (arr) => (arr.length < 2 ? arr.join('') : `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`);
+    const cols = w.days.map((d) => `<li class="td-wd${d.today ? ' is-today' : ''}${d.items.length ? '' : ' is-empty'}" aria-label="${esc(d.long)}${d.today ? ', today' : ''}">
+<h2 class="td-wd-h"><span>${esc(d.label.split(' ')[0])}</span><b>${esc(String(d.date.d))}</b>${d.today ? '<i>Today</i>' : ''}</h2>
+${d.items.length ? `<ul class="td-wis">${d.items.map(item).join('')}</ul>` : '<p class="td-wd-none">Nothing</p>'}</li>`).join('');
+    const phone = runs.map((r) => (r.empty
+        ? `<li class="td-pd is-empty">Nothing on ${esc(list(r.days.map((d) => d.label)))}</li>`
+        : r.days.map((d) => `<li class="td-pd${d.today ? ' is-today' : ''}"><h2 class="td-pd-h">${esc(d.long)}${d.today ? ' <i>Today</i>' : ''}</h2>${d.items.length ? `<ul class="td-wis">${d.items.map(item).join('')}</ul>` : '<p class="td-wd-none">Nothing yet</p>'}</li>`).join(''))).join('');
+    const count = w.days.reduce((a, d) => a + d.items.length, 0);
+    return `<div class="td-wrap td-page-pad" id="td-week" data-tz="${esc(w.tz)}">
+<header class="td-page-h"><p class="td-kicker">Your week</p><h1>${esc(w.title)}</h1>
+<p class="td-lede">${count ? `${count} thing${count === 1 ? '' : 's'} this week` : 'A clear week so far'}: your reminders, your events and the streams of the channels you follow${name ? `, ${esc(name)}` : ''}. Times in ${esc(w.tz.replace(/_/g, ' '))}.</p>
+<nav class="td-weeknav" aria-label="Weeks"><a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me/week?start=${esc(w.prev)}" rel="prev">${kit.icon('back')}<span>Last week</span></a>${w.thisWeek ? '' : '<a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me/week">This week</a>'}<a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me/week?start=${esc(w.next)}" rel="next"><span>Next week</span>${kit.icon('chevron')}</a><a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="/me">As a list</a></nav>
+<form class="td-quick" method="post" action="/me/reminders"><input type="hidden" name="back" value="week"><input type="hidden" name="tz" value="${esc(w.tz)}" data-tz>
+<label class="ovk-sr" for="td-quick-text">Add a reminder in plain words</label><input id="td-quick-text" name="text" maxlength="500" required placeholder="Remind me… every weekday at 9, tomorrow at 3pm, every 2 hours from 9 to 5" autocomplete="off">
+<button class="ovk-btn ovk-btn--primary ovk-btn--small" type="submit">${kit.icon('plus')}Add</button></form>
+</header>
+<ol class="td-week" aria-label="The week">${cols}</ol>
+<ol class="td-pweek" aria-label="The week, day by day">${phone}</ol>
 </div>`;
 }
 
@@ -338,4 +379,4 @@ function notFound() {
     return `<div class="td-wrap td-page-pad td-narrow"><div class="td-empty">${kit.icon('calendar')}<h1>Not on the calendar</h1><p>There is nothing at this address. It may have been cancelled, or it is for followers only.</p>${kit.button({ href: '/', label: 'See what is coming up', kind: 'quiet' })}</div></div>`;
 }
 
-module.exports = { home, channel, event, me, brief, schedule, signIn, developers, notFound, ZONES, LENGTHS, parts, dayKey };
+module.exports = { week, home, channel, event, me, brief, schedule, signIn, developers, notFound, ZONES, LENGTHS, parts, dayKey };

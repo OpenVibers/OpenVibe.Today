@@ -223,3 +223,49 @@ html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ri
   .td-mine-row { grid-template-columns: auto minmax(0, 1fr); }
   .td-mine-acts { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* ── Your week (plan L48 R3): seven columns on a computer, the days one under another on a phone ── */
+.td-weeknav { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
+.td-weeknav .ovk-btn { gap: 6px; }
+.td-weeknav .ovk-i { width: 1em; height: 1em; }
+.td-quick { display: flex; gap: 8px; margin: 14px 0 0; max-width: 720px; }
+.td-quick input[name="text"] { flex: 1; min-width: 0; min-height: 40px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #0e1626); color: var(--text-primary, #e8eef8); font: inherit; font-size: 14px; }
+.td-quick input[name="text"]:focus { outline: none; border-color: var(--room-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--room-accent) 22%, transparent); }
+.td-week { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.td-wd { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 10px 8px 12px; border-radius: 16px; border: 1px solid var(--border, #1f2d47); background: var(--bg-secondary, #0e1626); min-height: 220px; }
+.td-wd.is-today { border-color: color-mix(in srgb, var(--room-accent) 60%, var(--border, #1f2d47)); box-shadow: inset 0 3px 0 var(--room-accent); }
+.td-wd.is-empty { background: transparent; }
+.td-wd-h { margin: 0 2px; display: flex; align-items: baseline; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-secondary, #96a7c2); }
+.td-wd-h b { font-size: 22px; font-weight: 800; color: var(--text-primary, #e8eef8); letter-spacing: -.02em; }
+.td-wd-h i, .td-pd-h i { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 750; color: var(--room-strong, var(--room-accent)); }
+.td-wd-none { margin: 2px; color: var(--text-muted, #6f819d); font-size: 12.5px; }
+.td-wis { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.td-wi a { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 1px 7px; padding: 7px 8px; border-radius: 10px; color: var(--text-primary, #e8eef8); text-decoration: none; background: color-mix(in srgb, var(--text-primary, #e8eef8) 4%, transparent); border-left: 3px solid var(--k, var(--border, #1f2d47)); }
+.td-wi a:hover { background: color-mix(in srgb, var(--text-primary, #e8eef8) 8%, transparent); }
+.td-wi a:focus-visible { outline: 2px solid var(--room-accent); outline-offset: 1px; }
+.td-wi-k { grid-row: span 2; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; color: var(--k, var(--text-secondary, #96a7c2)); }
+.td-wi-k .ovk-i, .td-wi-k svg { width: 15px; height: 15px; }
+.td-wi time { font-size: 12px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--text-secondary, #96a7c2); }
+.td-wi-t { grid-column: 2; font-size: 13px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.td-wi-m { grid-column: 2; font-size: 11.5px; color: var(--text-muted, #6f819d); line-height: 1.3; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.td-wi.is-reminder { --k: var(--room-accent); }
+.td-wi.is-band { --k: color-mix(in srgb, var(--room-accent) 55%, #22c55e); }
+.td-wi.is-event { --k: #a78bfa; }
+.td-wi.is-stream { --k: #f43f5e; }
+.td-pweek { display: none; list-style: none; margin: 18px 0 0; padding: 0; }
+.td-pd { padding: 12px 0; border-top: 1px solid var(--border, #1f2d47); }
+.td-pd-h { margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 750; }
+.td-pd.is-today .td-pd-h { color: var(--room-strong, var(--room-accent)); }
+.td-pd.is-empty { padding: 10px 0; color: var(--text-muted, #6f819d); font-size: 13.5px; }
+@media (max-width: 960px) {
+  .td-week { display: none; }
+  .td-pweek { display: block; }
+  .td-wi a { grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; }
+  .td-wi-k { grid-row: auto; }
+  .td-wi-t { grid-column: 3; }
+  .td-wi-m { grid-column: 3; }
+}
+@media (max-width: 520px) { .td-quick { flex-direction: column; } .td-quick .ovk-btn { align-self: flex-start; } }
+/* The week's lines read as text (the room's link colour belongs to links in prose), and their times line up. */
+.td-wrap .td-wi a, .td-wrap .td-wi-t { color: var(--text-primary, #e8eef8); }
+.td-wi time { min-width: 2.9em; }
