@@ -92,7 +92,9 @@ function createMyReminders({ s }) {
             `UPDATE today_my_reminders
                 SET next_at = $3, status = CASE WHEN $3::timestamptz IS NULL THEN 'done' ELSE status END,
                     last_sent_at = $4, sent_count = sent_count + 1, updated_at = now()
-              WHERE id = $1 AND next_at = $2 AND status = 'active' RETURNING *`,
+              WHERE id = $1 AND status = 'active'
+                -- PostgreSQL keeps microseconds and a JS Date has milliseconds: compare at the coarser of the two.
+                AND date_trunc('milliseconds', next_at) = date_trunc('milliseconds', $2::timestamptz) RETURNING *`,
             [row.id, row.next_at, after ? after.toISOString() : null, new Date(now).toISOString()],
         );
     }
