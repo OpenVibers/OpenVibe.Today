@@ -20,6 +20,10 @@ function createAgenda({ s, follows }) {
             const r = await follows.forSubject(subject, token);
             followed = r.follows;
             unavailable = r.unavailable;
+        } else if (follows.lastGood && follows.lastGood.has(subject)) {
+            // A first-party service reading for the person (today.agenda.read: Vibe's "plan my day") has no token of
+            // theirs: it gets the follows last read with one, and says so when there are none.
+            followed = follows.peek(subject);
         } else {
             unavailable = true;
         }
