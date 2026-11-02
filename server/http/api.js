@@ -192,10 +192,31 @@ function createApi(ctx) {
         return (await mine.remove(req.actor.subject, String(req.params.id))) ? res.status(204).end() : res.status(404).json({ error: 'No such reminder' });
     });
 
-    r.get('/me/agenda', requirePerson, async (req, res) => {
+    // The person's agenda: the person, or a first-party service holding today.agenda.read that names the person with
+    // X-OV-Subject (Vibe's "plan my day", plan L48 V3; contracts 0.280.0). Read-only, one person per request.
+    function agendaActor(req, res, next) {
+        const p = req.principal;
+        if (p.kind === 'user') {
+            if (!person(req, res)) return undefined;
+            req.actor = { subject: p.subject, token: p.token };
+            return next();
+        }
+        if (p.kind === 'app') {
+            const caps = Array.isArray(p.claims && p.claims.cap) ? p.claims.cap : String((p.claims && p.claims.cap) || '').split(/[\s,]+/);
+            if (!String(p.requester || '').startsWith('service:')) return refuse(res, 403, 'today.person_required', 'Only a first-party service may read a person\'s agenda, for that person.');
+            if (!caps.includes('today.agenda.read')) return refuse(res, 403, 'capability.denied', 'This service does not hold today.agenda.read.');
+            const named = String(req.get('x-ov-subject') || '');
+            if (!USR.test(named)) return refuse(res, 400, 'today.subject_required', 'Name the person with X-OV-Subject: usr_…');
+            req.actor = { subject: named, token: null };
+            return next();
+        }
+        return person(req, res) ? next() : undefined;
+    }
+    r.get('/me/agenda', agendaActor, async (req, res) => {
         const raw = req.query.days == null || req.query.days === '' ? 14 : Number.parseInt(req.query.days, 10);
         if (!Number.isFinite(raw) || raw < 1 || raw > 60) return invalid(res, 'days', 'days must be a whole number from 1 to 60');
-        const out = await agenda.forSubject({ subject: req.principal.subject, token: req.principal.token, days: raw, now: s.now() });
+        const out = await agenda.forSubject({ subject: req.actor.subject, token: req.actor.token, days: raw, now: s.now() });
+        res.set('Cache-Control', 'no-store');
         return res.json(out);
     });
 
