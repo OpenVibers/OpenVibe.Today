@@ -160,7 +160,7 @@ function home({ upcoming = [], holidays = [], now = Date.now() } = {}) {
         proof: [
             { value: live.length, label: 'live now' },
             { value: upcoming.length, label: 'coming up' },
-            { value: channels.size, label: 'channels' },
+            { value: channels.size, label: channels.size === 1 ? 'channel' : 'channels' },
         ].filter((p) => p.value),
     });
     // Real first (the owner, 10-31: empty sections made the rooms look unfinished): Coming up shows only with something in
