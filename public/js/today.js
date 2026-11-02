@@ -7,6 +7,17 @@
     'use strict';
     var zone = (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } })();
     function fmt(d, opts) { try { return new Intl.DateTimeFormat(undefined, opts).format(d); } catch (e) { return d.toISOString(); } }
+    // The ring's hand: one timer for the page, which moves whichever ring is shown. A page swapped in place (boost) gets
+    // no second timer, and the timer holds no ring, so the old page is let go. Each visit to the home used to start one
+    // more timer that kept the ring it was made for (the release check's navigation test, 2026-11-02).
+    var ringTimer = 0;
+    function ringDeg(d) { return ((d.getHours() + d.getMinutes() / 60) / 24 * 360).toFixed(1) + 'deg'; }
+    function ringTick() {
+        var rings = document.querySelectorAll('[data-ring]');
+        if (!rings.length) { if (ringTimer) { clearInterval(ringTimer); ringTimer = 0; } return; }
+        var now = ringDeg(new Date());
+        rings.forEach(function (ring) { ring.style.setProperty('--now', now); });
+    }
 
     // Your week (plan L48 R3) is drawn by the server in your zone: keep it in a cookie, and if this week page was drawn
     // in another one, ask again once in yours.
@@ -70,12 +81,9 @@
             f.addEventListener('submit', function (e) { if (!window.confirm(f.getAttribute('data-confirm'))) e.preventDefault(); });
         });
         // The ring on the reader's own clock: each dot at its local hour, the hand at the local time now.
-        document.querySelectorAll('[data-ring]').forEach(function (ring) {
-            var deg = function (d) { return ((d.getHours() + d.getMinutes() / 60) / 24 * 360).toFixed(1) + 'deg'; };
-            ring.querySelectorAll('[data-at]').forEach(function (dot) { var d = new Date(dot.getAttribute('data-at')); if (!isNaN(d)) dot.style.setProperty('--a', deg(d)); });
-            var tick = function () { ring.style.setProperty('--now', deg(new Date())); };
-            tick(); if (!ring.dataset.ticking) { ring.dataset.ticking = '1'; setInterval(tick, 60000); }
-        });
+        document.querySelectorAll('[data-ring] [data-at]').forEach(function (dot) { var d = new Date(dot.getAttribute('data-at')); if (!isNaN(d)) dot.style.setProperty('--a', ringDeg(d)); });
+        ringTick();
+        if (!ringTimer && document.querySelector('[data-ring]')) ringTimer = setInterval(ringTick, 60000);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
     // Remind me: the form's time zone is the device's, and the words are read back as they are typed.
