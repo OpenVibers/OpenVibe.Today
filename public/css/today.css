@@ -74,7 +74,9 @@ html.ov-motion .td-ring-dot { animation: td-dot-in .6s cubic-bezier(.2, .8, .2, 
 @keyframes td-dot-in { from { opacity: 0; transform: rotate(var(--a)) translateY(-20cqw) rotate(calc(-1 * var(--a))) scale(.4); } }
 .td-ring-hand { position: absolute; left: 50%; bottom: 50%; width: 3px; height: 34%; margin-left: -1.5px; border-radius: 3px; background: linear-gradient(to top, transparent, var(--text-primary, #e6edf7)); transform-origin: 50% 100%; transform: rotate(var(--now)); }
 .td-ring-hub { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: var(--text-primary, #e6edf7); box-shadow: 0 0 0 4px var(--bg-primary, #0a0f1c); }
-.td-ring-label { position: absolute; font-size: .66rem; font-weight: 800; letter-spacing: .06em; color: var(--text-muted, #7386a3); }
+/* The hour labels take the page's own text colour, softened: --text-muted under this card was #d5d5da on white in
+   Daylight (1.46:1, the WCAG sweep of 2026-11-01). */
+.td-ring-label { position: absolute; font-size: .66rem; font-weight: 800; letter-spacing: .06em; color: color-mix(in srgb, var(--text-primary, #e6edf7) 64%, transparent); }
 .td-ring-l0 { left: 50%; top: 0; translate: -50% 0; }
 .td-ring-l6 { right: 0; top: 50%; translate: 0 -50%; }
 .td-ring-l12 { left: 50%; bottom: 0; translate: -50% 0; }
