@@ -76,7 +76,9 @@ html.ov-motion .td-ring-dot { animation: td-dot-in .6s cubic-bezier(.2, .8, .2, 
 .td-ring-hub { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: var(--text-primary, #e6edf7); box-shadow: 0 0 0 4px var(--bg-primary, #0a0f1c); }
 /* The hour labels take the page's own text colour, softened: --text-muted under this card was #d5d5da on white in
    Daylight (1.46:1, the WCAG sweep of 2026-11-01). */
-.td-ring-label { position: absolute; font-size: .66rem; font-weight: 800; letter-spacing: .06em; color: color-mix(in srgb, var(--text-primary, #e6edf7) 64%, transparent); }
+.td-ring-label { position: absolute; z-index: 1; font-size: .66rem; font-weight: 800; letter-spacing: .06em; line-height: 1.5; padding: 0 5px; border-radius: 999px;
+  /* A pill in the page's own ground: an event dot or the amber arc at that hour sat under the bare label (12 was 1.11:1). */
+  background: var(--bg-primary, #0a0f1c); color: color-mix(in srgb, var(--text-primary, #e6edf7) 64%, var(--bg-primary, #0a0f1c)); }
 .td-ring-l0 { left: 50%; top: 0; translate: -50% 0; }
 .td-ring-l6 { right: 0; top: 50%; translate: 0 -50%; }
 .td-ring-l12 { left: 50%; bottom: 0; translate: -50% 0; }
