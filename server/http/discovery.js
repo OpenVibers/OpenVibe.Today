@@ -71,6 +71,10 @@ function createDiscoveryRoutes(ctx) {
     r.get('/llms.txt', (_req, res) => {
         res.type('text/plain').set('Cache-Control', TEXT).send(seo.llmsTxt({
             name: SITE_NAME,
+            // Each of this site's own pages is linked at its Markdown twin (AGT-5; openvibe-shared 4.108.0 leaves
+            // files, /api/, /ics/ and /.well-known/ paths and other sites' links as they are).
+            markdown: true,
+            base: site,
             summary: 'OpenVibe.Today is the network\'s time bus and calendar authority: a public schedule of streams and events, reminders sent through OpenVibe.Network, a private ICS feed per person, and a daily brief that includes what OpenVibe.Live\'s Rundown talked about yesterday.',
             details: 'GET /api/v1/events lists public events (soonest first). GET /api/v1/events/:id is one event with JSON-LD on its page. A signed-in person schedules a stream or an event, changes it, cancels it and sets a reminder. GET /ics/@<username>.ics is a channel\'s public calendar; a person\'s private feed is at GET /ics/<token>.ics. Events are published as today.event.scheduled|updated|cancelled and live.stream.started|ended is consumed to move an event live and then done.',
             sections: [
@@ -79,17 +83,16 @@ function createDiscoveryRoutes(ctx) {
                     { title: 'The API', url: abs('/developers') },
                     { title: 'Public events (JSON)', url: abs('/api/v1/events') },
                 ] },
-                { title: 'Machine-readable', links: [
-                    { title: 'Sitemap', url: abs('/sitemap.xml') },
-                    { title: 'Full text for language models', url: abs('/llms-full.txt') },
-                    { title: 'Release metadata (JSON)', url: abs('/release.json') },
-                ] },
-                { title: 'Elsewhere', links: [
-                    { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'accounts, follows and notifications' },
-                    { title: 'OpenVibe.Live', url: 'https://openvibe.live', note: 'where a stream happens' },
-                    { title: 'OpenVibe.Events', url: 'https://openvibe.events', note: 'the durable event backbone' },
-                    { title: 'OpenVibe.Services', url: 'https://openvibe.services', note: 'apps, keys and capability grants' },
-                ] },
+            ],
+            // llmstxt.org's "## Optional": what an agent may skip when it needs a shorter context.
+            optional: [
+                { title: 'Sitemap', url: abs('/sitemap.xml') },
+                { title: 'Full text for language models', url: abs('/llms-full.txt') },
+                { title: 'Release metadata (JSON)', url: abs('/release.json') },
+                { title: 'OpenVibe.Network', url: 'https://openvibe.network', note: 'accounts, follows and notifications' },
+                { title: 'OpenVibe.Live', url: 'https://openvibe.live', note: 'where a stream happens' },
+                { title: 'OpenVibe.Events', url: 'https://openvibe.events', note: 'the durable event backbone' },
+                { title: 'OpenVibe.Services', url: 'https://openvibe.services', note: 'apps, keys and capability grants' },
             ],
         }));
     });
