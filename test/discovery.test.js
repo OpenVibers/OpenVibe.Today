@@ -43,10 +43,22 @@ const PRIVATE = ['/auth/', '/api/', '/me', '/brief', '/schedule', '/internal'];
             assert.strictEqual(r.status, 200);
             assert.match(r.headers.get('content-type'), /^text\/plain/);
             assert.ok(r.text.startsWith('# OpenVibe.Today'));
-            assert.ok(r.text.includes('(https://openvibe.today/developers)'));
+            assert.ok(r.text.includes('(https://openvibe.today/developers.md)'), 'the API page at its twin');
             assert.ok(r.text.includes('https://openvibe.today/sitemap.xml'));
             assert.ok(r.text.includes('(https://openvibe.today/llms-full.txt)'));
             for (const p of ['/auth/', '/me', '/brief']) assert.ok(!r.text.includes(`https://openvibe.today${p}`), `private path in llms.txt: ${p}`);
+            // AGT-5: the home at /index.md, each page at its twin, Optional last.
+            assert.ok(r.text.includes('[OpenVibe.Today](https://openvibe.today/index.md)'), 'the home is /index.md');
+            assert.ok(r.text.includes('(https://openvibe.today/api/v1/events)'), 'an API URL keeps its URL');
+            assert.ok(/\n## Optional\n/.test(r.text), 'no Optional section');
+            assert.ok(/\n## Optional\n\n[\s\S]*\[Sitemap\]\(https:\/\/openvibe\.today\/sitemap\.xml\)/.test(r.text));
+            assert.strictEqual(r.text.lastIndexOf('\n## '), r.text.indexOf('\n## Optional'), 'Optional is the last section');
+            const own = [...r.text.matchAll(/\]\((https:\/\/openvibe\.today[^)\s]*)\)( \(HTML\))?/g)];
+            assert.ok(own.length > 4, String(own.length));
+            for (const [, url, html] of own) {
+                const p = new URL(url).pathname;
+                assert.ok(p.endsWith('.md') || /\.[a-z0-9]+$/.test(p) || p.startsWith('/api/') || html, `${url} is a twin, a file or marked (HTML)`);
+            }
         });
 
         await check('llms-full.txt: every page the sitemap lists', async () => {
