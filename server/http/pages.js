@@ -67,18 +67,26 @@ function eventJsonLd(e, config) {
  * the Link header advertise it. Nothing here is drawn for a signed-in person.
  */
 function createPublicPageViews(ctx) {
-    const { config, s, events } = ctx;
+    const { config, s, events, agents } = ctx;
     const base = () => String(config.baseUrl).replace(/\/+$/, '');
 
-    async function home() {
+    async function home(req) {
         const now = s.now();
         const HOLIDAYS = ['holiday', 'observance'];
+        const viewer = req && req.viewer && req.viewer.kind === 'user' && req.viewer.subject ? req.viewer : null;
         const rows = await events.listPublic({ from: new Date(now - 2 * 60 * 60_000).toISOString(), to: new Date(now + 60 * DAY).toISOString(), limit: 20, exceptKinds: HOLIDAYS });
         const holidays = await events.listPublic({ from: new Date(now - DAY).toISOString(), to: new Date(now + 8 * DAY).toISOString(), limit: 200, kinds: ['holiday'] });
+        // S7: the agents' own block, never mixed into the calendar rows. A signed-in reader gets their follows'
+        // order and their own digest; everyone else gets the same public streams by viewers.
+        const [liveAgents, plannedAgents, digest] = await Promise.all([
+            agents ? agents.live({ subject: viewer ? viewer.subject : null, token: viewer ? viewer.token : null }) : { agents: [] },
+            agents ? agents.schedules() : { schedules: [] },
+            viewer && agents ? agents.digest(viewer.token) : { reports: [] },
+        ]);
         return {
             index: true, cache: PUBLIC_CACHE, agent: true,
             title: null,
-            body: raw(views.home({ upcoming: rows, holidays, now })),
+            body: raw(views.home({ upcoming: rows, holidays, now, agents: liveAgents, schedules: plannedAgents, digest })),
             description: 'Streams, events and reminders across OpenVibe on one calendar: schedule a stream, get reminded, and subscribe in your own calendar app.',
             // Every row on the page is a dated, public event the reader can open: that is exactly one Event node.
             jsonLd: oneGraph([...homeJsonLd(config), ...rows.map((e) => eventJsonLd(e, config)), seo.jsonLd.organization()]),
@@ -126,7 +134,7 @@ function createPageRoutes(ctx) {
 
     // ── Home ─────────────────────────────────────────────────
     const publicViews = createPublicPageViews(ctx);
-    r.get('/', async (req, res) => page(req, res, await publicViews.home()));
+    r.get('/', async (req, res) => page(req, res, await publicViews.home(req)));
 
     // ── A channel's schedule ────────────────────────────────
     r.get('/@:username', async (req, res) => {

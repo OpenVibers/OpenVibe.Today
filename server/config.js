@@ -65,6 +65,12 @@ function load(env = process.env) {
             scope: env.TODAY_EVENTS_SCOPE || 'events.event.publish',
         },
 
+        // OpenVibe.Report's public API, for "Your agents this week" (the S3 digest card).
+        report: {
+            url: trim(env.OV_REPORT_URL || 'https://openvibe.report'),
+            timeoutMs: Math.max(300, int(env.TODAY_REPORT_TIMEOUT_MS, 2500)),
+        },
+
         // OpenVibe.Live's public Rundown API, for "Yesterday on OpenVibe" in the brief.
         live: {
             internalUrl: trim(env.OV_LIVE_INTERNAL_URL || 'http://127.0.0.1:3000'),
