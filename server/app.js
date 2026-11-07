@@ -178,6 +178,21 @@ async function createApp(opts = {}) {
         },
     }));
 
+    // The menu's network card (frame.menu-cards@1): the next public events today, or tomorrow's. Only what the
+    // public schedule already shows (events.listPublic) is read, so private and followers-only events never
+    // reach it; the loader reads the next two UTC days and the card picks today's, else tomorrow's.
+    {
+        const { createMenuCard, startOfDay, DAY } = require('./menu-card');
+        const menuCard = createMenuCard({
+            load: async (at) => await events.listPublic({
+                from: new Date(startOfDay(at)).toISOString(),
+                to: new Date(startOfDay(at) + 2 * DAY).toISOString(),
+                limit: 50, exceptKinds: ['holiday'],
+            }),
+        });
+        app.get('/.well-known/openvibe-menu.json', menuCard.handler);
+    }
+
     // ── API ─────────────────────────────────────────────────
     app.use('/api/v1', rateLimit({ windowMs: 60_000, limit: Number(process.env.TODAY_API_RATE_LIMIT_PER_MIN) || 240, standardHeaders: true, legacyHeaders: false, handler: (req, res) => contracts.http.sendProblem(res, 429, 'rate_limited', { detail: 'too many requests from this address; retry shortly', ctx: req.ov }) }));
     app.use('/api/v1', createApi(ctx));
