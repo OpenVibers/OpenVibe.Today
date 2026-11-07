@@ -167,20 +167,72 @@ function agentsLive({ agents = null, schedules = null, digest = null, now = Date
 ${cards}${more}${plannedBlock}${digestBlock}</section>`;
 }
 
+/** 24-hour clock hour of an Intl part set (parts() gives a 12-hour hour and a day period). */
+const hour24 = (p) => (Number(p.hour) % 12) + (p.dayPeriod === 'PM' ? 12 : 0);
+
+/**
+ * The reminder scene: the first real upcoming event, its own date tile, channel and time, and a toast that is true of
+ * that event. With nothing upcoming it says so and links the real schedule form — never a written-in stream.
+ */
+function homeReminder(upcoming, now) {
+    const e = upcoming[0];
+    if (!e) {
+        return `<div class="td-demo td-demo-remind"><div class="td-demo-card">${kit.icon('bell')}<span><b>No event to remind you of yet</b><small>Put one on the calendar and the reminder reaches you in the bell.</small></span><a class="td-demo-btn" href="/schedule">Schedule a stream</a></div></div>`;
+    }
+    const p = parts(e.starts_at, e.tz);
+    const mins = Math.round((Date.parse(e.starts_at) - now) / 60_000);
+    const note = e.status === 'live' ? 'is live now'
+        : mins <= 0 ? 'is on your calendar'
+            : mins <= 60 ? `starts in ${mins} min`
+                : mins < 24 * 60 ? `starts in ${Math.round(mins / 60)} h` : 'reminds you before it starts';
+    return `<div class="td-demo td-demo-remind"><div class="td-demo-card">${tile(e.starts_at, e.tz)}<span><b>${esc(e.title)}</b><small>${e.channel ? `@${esc(e.channel)} · ` : ''}${esc(timeText(p))} ${esc(p.timeZoneName)}</small></span><a class="td-demo-btn" href="/e/${esc(e.id)}">Remind me</a></div>
+<div class="td-demo-toast">${kit.icon('calendar')}<span><b>${esc(e.title)} ${esc(note)}</b><small>${esc(dayLabel(e.starts_at, e.tz, now))} · openvibe.today</small></span></div></div>`;
+}
+
+/**
+ * The calendar scene: the next real events, each in its own day's column at the hour it starts. With none it shows the
+ * empty calendar and the way to the schedule form.
+ */
+function homeCalendar(upcoming) {
+    const rows = upcoming.slice(0, 3);
+    if (!rows.length) {
+        return `<div class="td-demo td-demo-cal"><div class="td-empty">${kit.icon('calendar')}<p>Nothing on the calendar yet.</p><a href="/schedule">Schedule a stream</a></div></div>`;
+    }
+    const heads = rows.map((e) => { const p = parts(e.starts_at, e.tz); return `<span>${esc(p.weekday)} ${esc(p.day)}</span>`; }).join('');
+    const cells = rows.map((e, i) => {
+        const p = parts(e.starts_at, e.tz);
+        const row = Math.min(5, Math.max(1, Math.floor(hour24(p) / 4) + 1));
+        return `<i style="--c:${i + 1};--r:${row}"${e.status === 'live' ? ' class="is-room"' : ''}>${esc(e.title)}</i>`;
+    }).join('');
+    return `<div class="td-demo td-demo-cal"><div class="td-cal-head">${heads}</div><div class="td-cal-grid" aria-label="The next events on the calendar">${cells}</div></div>`;
+}
+
+/**
+ * The schedule scene: the next schedule a streamer has already set (the same public rows the agents block reads), or an
+ * honest "nothing scheduled yet" card with the real form. Never a written-in streamer or a written-in time.
+ */
+function homeSchedule(schedules, now) {
+    const planned = (schedules && Array.isArray(schedules.schedules)) ? schedules.schedules : [];
+    const s = planned[0];
+    if (s) {
+        const p = parts(s.starts_at, 'UTC');
+        return `<div class="td-demo td-demo-sched"><div class="td-demo-card is-form"><span class="td-demo-k">Scheduled stream</span><b>${esc(s.title)}</b><small>${esc(dayLabel(s.starts_at, 'UTC', now))}, ${esc(timeText(p))} ${esc(p.timeZoneName)} · @${esc(s.channel)}${s.waits_for_go ? ' · waits for Go' : ''}</small><a class="td-demo-btn" href="${esc(s.page_url || '/schedule')}">Open it</a></div></div>`;
+    }
+    return `<div class="td-demo td-demo-sched"><div class="td-demo-card is-form"><span class="td-demo-k">Schedule</span><b>Nothing scheduled yet</b><small>Put your next stream on the calendar; followers see it in their bell.</small><a class="td-demo-btn" href="/schedule">Schedule a stream</a></div></div>`;
+}
+
 function home({ upcoming = [], holidays = [], agents = null, schedules = null, digest = null, now = Date.now() } = {}) {
     const channels = new Set(upcoming.map((e) => e.channel).filter(Boolean));
     const live = upcoming.filter((e) => e.status === 'live');
     const scenes = [
         { title: 'A reminder that finds you', text: 'Tap Remind on anything coming up and it arrives in the bell on whichever OpenVibe site you have open.',
-            html: `<div class="td-demo td-demo-remind"><div class="td-demo-card">${tile(new Date(now + DAY).toISOString(), 'UTC')}<span><b>Night owls: Seattle walk</b><small>goosely · 8:00 PM</small></span><span class="td-demo-btn">Remind me</span></div>
-<div class="td-demo-toast">${kit.icon('calendar')}<span><b>Night owls: Seattle walk starts in 10 min</b><small>Today · openvibe.today</small></span></div></div>`,
+            html: homeReminder(upcoming, now),
             action: { href: '/me', label: 'Your agenda' } },
         { title: 'In the calendar you already use', text: 'Subscribe once in Google Calendar, Apple Calendar or Outlook, and every change follows on its own.',
-            html: `<div class="td-demo td-demo-cal" aria-hidden="true"><div class="td-cal-head"><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="td-cal-grid"><i style="--c:1;--r:3">Robot build, part 2</i><i style="--c:2;--r:5" class="is-room">Night owls</i><i style="--c:3;--r:2">Speedrun Sunday</i></div></div>`,
+            html: homeCalendar(upcoming),
             action: { href: '/developers#feeds', label: 'Calendar feeds' } },
         { title: 'Schedule once, your followers know', text: 'A scheduled stream shows on your channel and in your followers’ calendars; a cancellation disappears everywhere.',
-            html: `<div class="td-demo td-demo-sched"><div class="td-demo-card is-form"><span class="td-demo-k">Stream</span><b>Robot build, part 2</b><small>Fri, 8:00 PM PDT · 2 hours · Public</small><span class="td-demo-btn">Schedule it</span></div>
-<div class="td-demo-toast">${kit.icon('live')}<span><b>carol scheduled a stream</b><small>Robot build, part 2 · Fri, 8:00 PM PDT</small></span></div></div>`,
+            html: homeSchedule(schedules, now),
             action: { href: '/schedule', label: 'Schedule a stream' } },
     ];
     // The hero (and its live numbers) come from the shared room kit; the schedule and the scenes follow in Today's own
