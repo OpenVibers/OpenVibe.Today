@@ -1,19 +1,21 @@
 'use strict';
 // The menu's network card for OpenVibe.Today (frame.menu-card@1): GET /.well-known/openvibe-menu.json.
 //
-// Today publishes "Today": the next real public events scheduled for today (UTC), each with its own time and
-// channel or place, linking to its event page. When nothing is left today the card moves to tomorrow and its
-// title says "Tomorrow"; with nothing on either day it is still published, with no items, and Network skips it.
+// Today publishes its next real public events: everything still upcoming within the next seven days, in start
+// order, each with its own day, time and channel or place, linking to its event page. The title says which day
+// the first one is on ("Today", "Tomorrow" or "Next 7 days"). With nothing upcoming the card is still published,
+// with no items, and Network skips it: the schedule is honest rather than filled with stale events.
 //
 // Only public, non-cancelled events the public schedule already shows (events.listPublic) are read. Personal
-// agendas, reminders and followers-only events never reach the card. The file is CORS *, cached for five
-// minutes; a failed database keeps the last good card.
+// agendas, reminders, followers-only events and holidays never reach the card. The file is CORS *, cached for
+// five minutes; a failed database keeps the last good card.
 const BASE = 'https://openvibe.today';
 const CARD_ID = 'today';
 const SITE = 'today';
 const CARD_TTL_S = 300;
 const CACHE_MS = CARD_TTL_S * 1000;
 const DAY = 24 * 60 * 60_000;
+const WINDOW_DAYS = 7;
 const LIMIT = 6;
 
 /** Plain words for a card: no markup, no control characters, one line, within the schema's limit. */
@@ -31,6 +33,16 @@ const dayKey = (value) => new Date(value).toISOString().slice(0, 10);
 
 /** The start of a UTC day, in milliseconds. */
 const startOfDay = (value) => Date.parse(`${dayKey(value)}T00:00:00.000Z`);
+
+/** "Tomorrow", "Mon 10 Nov", or "" for an event later today. Days are UTC, like the card's window. */
+function dayLabel(iso, at) {
+    const start = Date.parse(String(iso || ''));
+    if (!Number.isFinite(start)) return '';
+    const key = dayKey(start);
+    if (key === dayKey(at)) return '';
+    if (key === dayKey(at + DAY)) return 'Tomorrow';
+    return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(start));
+}
 
 /** "14:00 UTC" in the event's own zone (UTC when it has none or it is unknown). */
 function timeLabel(iso, tz) {
@@ -61,30 +73,31 @@ function placeOf(e) {
 
 /** The card itself. `events` are public events (events.listPublic rows); `at` is the build time. */
 function cardFrom(events, at = Date.now()) {
+    const until = at + WINDOW_DAYS * DAY;
     const upcoming = (Array.isArray(events) ? events : [])
         .filter((e) => e && e.starts_at && e.status !== 'cancelled' && e.status !== 'done')
         .filter((e) => !e.visibility || e.visibility === 'public')
         .filter((e) => {
             const start = Date.parse(String(e.starts_at));
-            return Number.isFinite(start) && start >= at;
+            return Number.isFinite(start) && start >= at && start <= until;
         })
         .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
-    const today = dayKey(at);
-    const tomorrow = dayKey(at + DAY);
-    const todayItems = upcoming.filter((e) => dayKey(e.starts_at) === today).slice(0, LIMIT);
-    const next = todayItems.length ? todayItems : upcoming.filter((e) => dayKey(e.starts_at) === tomorrow).slice(0, LIMIT);
     const items = [];
-    for (const e of next) {
+    let firstDay = null;
+    for (const e of upcoming) {
         const title = plain(e.title, 80);
         if (!title) continue;
-        const when = timeLabel(e.starts_at, e.tz);
+        if (firstDay === null) firstDay = dayKey(e.starts_at);
+        const when = [dayLabel(e.starts_at, at), timeLabel(e.starts_at, e.tz)].filter(Boolean).join(' · ');
         const meta = [when, plain(placeOf(e), 60)].filter(Boolean).join(' · ');
         items.push({ title, ...(meta ? { meta: plain(meta, 120) } : {}), url: `${BASE}/e/${encodeURIComponent(String(e.id))}` });
+        if (items.length >= LIMIT) break;
     }
+    const title = !items.length ? 'Today' : firstDay === dayKey(at) ? 'Today' : firstDay === dayKey(at + DAY) ? 'Tomorrow' : 'Next 7 days';
     return {
         id: CARD_ID,
         site: SITE,
-        title: todayItems.length ? 'Today' : (items.length ? 'Tomorrow' : 'Today'),
+        title,
         kind: 'rows',
         items,
         more: { label: 'Full schedule', url: `${BASE}/` },
@@ -93,7 +106,7 @@ function cardFrom(events, at = Date.now()) {
     };
 }
 
-/** The route. `load(at)` returns the next two UTC days of public events; `now` is injectable for the test. */
+/** The route. `load(at)` returns the next seven UTC days of public events; `now` is injectable for the test. */
 function createMenuCard({ load, now = Date.now } = {}) {
     let cached = null;
     let cachedAt = 0;
@@ -108,7 +121,7 @@ function createMenuCard({ load, now = Date.now } = {}) {
                 cached = cardFrom(await load(at), at);
                 cachedAt = at;
             } catch {
-                // Keep the last good card rather than publish an empty one on a database hiccup.
+                // Keep the last good card rather than publish an empty schedule on a database hiccup.
                 if (!cached) { cached = cardFrom([], at); cachedAt = at; }
             }
             return cached;
@@ -127,4 +140,4 @@ function createMenuCard({ load, now = Date.now } = {}) {
     return { card, handler, cardFrom, cacheMs: CACHE_MS };
 }
 
-module.exports = { createMenuCard, cardFrom, timeLabel, placeOf, dayKey, startOfDay, plain, BASE, CARD_ID, SITE, CARD_TTL_S, DAY, LIMIT };
+module.exports = { createMenuCard, cardFrom, dayLabel, timeLabel, placeOf, dayKey, startOfDay, plain, BASE, CARD_ID, SITE, CARD_TTL_S, DAY, WINDOW_DAYS, LIMIT };
