@@ -178,15 +178,15 @@ async function createApp(opts = {}) {
         },
     }));
 
-    // The menu's network card (frame.menu-cards@1): the next public events today, or tomorrow's. Only what the
-    // public schedule already shows (events.listPublic) is read, so private and followers-only events never
-    // reach it; the loader reads the next two UTC days and the card picks today's, else tomorrow's.
+    // The menu's network card (frame.menu-cards@1): the next public events within seven days. Only what the public
+    // schedule already shows (events.listPublic) is read, so private and followers-only events never reach it; the
+    // loader reads the window and the card keeps the upcoming events, in start order.
     {
-        const { createMenuCard, startOfDay, DAY } = require('./menu-card');
+        const { createMenuCard, DAY, WINDOW_DAYS } = require('./menu-card');
         const menuCard = createMenuCard({
             load: async (at) => await events.listPublic({
-                from: new Date(startOfDay(at)).toISOString(),
-                to: new Date(startOfDay(at) + 2 * DAY).toISOString(),
+                from: new Date(at).toISOString(),
+                to: new Date(at + WINDOW_DAYS * DAY).toISOString(),
                 limit: 50, exceptKinds: ['holiday'],
             }),
         });
