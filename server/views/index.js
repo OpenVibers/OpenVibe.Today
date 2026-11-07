@@ -130,7 +130,44 @@ function holidaysWeek(rows, now) {
     }).join('')}</ul></li>`).join('')}</ol></section>`;
 }
 
-function home({ upcoming = [], holidays = [], now = Date.now() } = {}) {
+
+/** One live agent card: its last frame, the task and the current step (S7). Every value is text. */
+function agentCard(a) {
+    const step = a.current_step && a.current_step.title ? `<span class="td-agent-step">${esc(a.current_step.title)}</span>` : '';
+    const viewers = a.viewers ? `<span class="td-agent-viewers">${esc(String(a.viewers))} watching</span>` : '';
+    return `<li class="td-agent"><a class="td-agent-link" href="${esc(a.page_url || '#')}">
+<span class="td-agent-media">${a.last_frame_url ? `<img src="${esc(a.last_frame_url)}" alt="" loading="lazy">` : '<span class="td-agent-noimg">No frame yet</span>'}<span class="td-agent-label">AI agent</span>${viewers}</span>
+<span class="td-agent-body"><b class="td-agent-title">${esc(a.title || 'An AI agent stream')}</b>
+${a.task && a.task.title ? `<span class="td-agent-task">${esc(a.task.title)}</span>` : ''}${step}</span></a></li>`;
+}
+
+/** The Agents live block: public live agent streams (followed first, then most watched), the next 24 hours of
+ *  schedules, and — for the person signed in — the digest card of their own agents. Never mixed with people's streams. */
+function agentsLive({ agents = null, schedules = null, digest = null, now = Date.now() } = {}) {
+    const live = (agents && Array.isArray(agents.agents)) ? agents.agents : [];
+    const planned = (schedules && Array.isArray(schedules.schedules)) ? schedules.schedules : [];
+    const reports = (digest && Array.isArray(digest.reports)) ? digest.reports : [];
+    if (!live.length && !planned.length && !reports.length) return '';
+    const shown = live.slice(0, 3);
+    const rest = live.slice(3);
+    const cards = shown.length ? `<ul class="td-agents">${shown.map(agentCard).join('')}</ul>` : '';
+    // The counted fold: never a silent cut, and it works without JavaScript.
+    const more = rest.length ? `<details class="td-agent-fold"><summary>More (${rest.length})</summary><ul class="td-agents">${rest.map(agentCard).join('')}</ul></details>` : '';
+    const plannedRows = planned.slice(0, 4).map((s) => `<li><a href="${esc(s.page_url || '#')}"><time datetime="${esc(s.starts_at)}" data-local="time">${esc(parts(s.starts_at, 'UTC').month)} ${esc(parts(s.starts_at, 'UTC').day)}, ${esc(timeText(parts(s.starts_at, 'UTC')))}</time><b>${esc(s.title)}</b><span>@${esc(s.channel)}${s.waits_for_go ? ' · waits for Go' : ''}</span></a></li>`).join('');
+    const plannedBlock = plannedRows ? `<div class="td-agent-planned"><h3>Scheduled · next 24 hours</h3><ul>${plannedRows}</ul></div>` : '';
+    let digestBlock = '';
+    if (reports.length) {
+        const done = reports.filter((r) => r.outcome === 'done').length;
+        const failed = reports.filter((r) => r.outcome === 'failed').length;
+        const links = reports.slice(0, 3).map((r) => `<li><a href="https://openvibe.report/s/${encodeURIComponent(r.id)}">${esc((r.task && r.task.title) || r.summary || 'A session')}</a><span>${esc(r.outcome || 'done')}</span></li>`).join('');
+        digestBlock = `<aside class="td-agent-digest" aria-labelledby="td-agent-digest-h"><h3 id="td-agent-digest-h">Your agents this week</h3>
+<p class="td-agent-digest-counts"><b>${reports.length}</b> session${reports.length === 1 ? '' : 's'}${done ? ` · ${done} done` : ''}${failed ? ` · ${failed} failed` : ''}</p><ul>${links}</ul></aside>`;
+    }
+    return `<section class="td-agents-live" id="td-agents" aria-labelledby="td-agents-h"><div class="td-head-row"><h2 id="td-agents-h">${kit.icon('live')}Agents live</h2><a class="td-more" href="https://openvibe.live/">On Live${kit.icon('chevron')}</a></div>
+${cards}${more}${plannedBlock}${digestBlock}</section>`;
+}
+
+function home({ upcoming = [], holidays = [], agents = null, schedules = null, digest = null, now = Date.now() } = {}) {
     const channels = new Set(upcoming.map((e) => e.channel).filter(Boolean));
     const live = upcoming.filter((e) => e.status === 'live');
     const scenes = [
@@ -182,7 +219,8 @@ ${days(upcoming, { now })}</section>` : '';
         ['Can I see this in my own calendar app?', 'Yes. Every channel has a public calendar feed, and your agenda has a private one. Subscribe in any app that reads iCalendar (.ics); updates and cancellations follow.'],
         ['Who sees what I schedule?', 'A public stream is on your channel, here and in feeds. A followers-only one is seen only by the people who follow you. Followers hear about at most three new schedules from you a day.'],
     ] });
-    const body = hero.replace(/<\/div>\s*$/, `${coming}${holidaysWeek(holidays, now)}${scenesHTML}${beFirst}${explore}${faq}</div>`);
+    const agentsHTML = agentsLive({ agents, schedules, digest, now });
+    const body = hero.replace(/<\/div>\s*$/, `${agentsHTML}${coming}${holidaysWeek(holidays, now)}${scenesHTML}${beFirst}${explore}${faq}</div>`);
     return `<div class="td-wrap" id="td-home">${body}</div>`;
 }
 

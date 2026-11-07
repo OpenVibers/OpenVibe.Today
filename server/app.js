@@ -39,6 +39,7 @@ const { createPublisher } = require('./events/publisher');
 const { createFeeds } = require('./feeds');
 const { createFollows } = require('./identity/follows');
 const { createAgenda } = require('./agenda');
+const { createAgents } = require('./agents');
 const { createBrief } = require('./brief');
 const { createImports } = require('./imports');
 const { createNotifier } = require('./notifications');
@@ -68,6 +69,7 @@ async function createApp(opts = {}) {
     const feeds = createFeeds({ s });
     const follows = createFollows({ config, fetchImpl, now: s.now, log });
     const agenda = createAgenda({ s, follows });
+    const agents = createAgents({ config, follows, fetchImpl, now: s.now, log });
     const brief = createBrief({ config, s, agenda, fetchImpl, log });
     const notifier = createNotifier({ config, s, fetchImpl, log });
     const mine = require('./my-reminders').createMyReminders({ s });
@@ -85,7 +87,7 @@ async function createApp(opts = {}) {
     const consumer = createEventsConsumer({ config, s, accountData, accountSend, now: s.now, log });
 
     const ctx = {
-        config, s, keys, sso, principal, events, feeds, follows, agenda, brief, notifier, reminders, mine, publisher,
+        config, s, keys, sso, principal, events, feeds, follows, agenda, agents, brief, notifier, reminders, mine, publisher,
         imports, calendarImports, accountData, accountSend, consumer, log,
     };
 
