@@ -182,13 +182,9 @@ async function createApp(opts = {}) {
     // schedule already shows (events.listPublic) is read, so private and followers-only events never reach it; the
     // loader reads the window and the card keeps the upcoming events, in start order.
     {
-        const { createMenuCard, DAY, WINDOW_DAYS } = require('./menu-card');
+        const { createMenuCard, upcomingRows } = require('./menu-card');
         const menuCard = createMenuCard({
-            load: async (at) => await events.listPublic({
-                from: new Date(at).toISOString(),
-                to: new Date(at + WINDOW_DAYS * DAY).toISOString(),
-                limit: 50, exceptKinds: ['holiday'],
-            }),
+            load: (at) => upcomingRows(events, at),
         });
         app.get('/.well-known/openvibe-menu.json', menuCard.handler);
     }

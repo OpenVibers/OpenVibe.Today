@@ -7,7 +7,8 @@
 // with no items, and Network skips it: the schedule is honest rather than filled with stale events.
 //
 // Only public, non-cancelled events the public schedule already shows (events.listPublic) are read. Personal
-// agendas, reminders, followers-only events and holidays never reach the card. The file is CORS *, cached for
+// agendas, reminders and followers-only events never reach the card, and holidays only when no other public event
+// is on this week (server/app.js). The file is CORS *, cached for
 // five minutes; a failed database keeps the last good card.
 const BASE = 'https://openvibe.today';
 const CARD_ID = 'today';
@@ -88,8 +89,10 @@ function cardFrom(events, at = Date.now()) {
         const title = plain(e.title, 80);
         if (!title) continue;
         if (firstDay === null) firstDay = dayKey(e.starts_at);
-        const when = [dayLabel(e.starts_at, at), timeLabel(e.starts_at, e.tz)].filter(Boolean).join(' · ');
-        const meta = [when, plain(placeOf(e), 60)].filter(Boolean).join(' · ');
+        // A holiday is a whole day: its day and the word, not a 00:00 start time or a place.
+        const meta = e.kind === 'holiday'
+            ? [dayLabel(e.starts_at, at), 'Holiday'].filter(Boolean).join(' · ')
+            : [[dayLabel(e.starts_at, at), timeLabel(e.starts_at, e.tz)].filter(Boolean).join(' · '), plain(placeOf(e), 60)].filter(Boolean).join(' · ');
         items.push({ title, ...(meta ? { meta: plain(meta, 120) } : {}), url: `${BASE}/e/${encodeURIComponent(String(e.id))}` });
         if (items.length >= LIMIT) break;
     }
@@ -140,4 +143,14 @@ function createMenuCard({ load, now = Date.now } = {}) {
     return { card, handler, cardFrom, cacheMs: CACHE_MS };
 }
 
-module.exports = { createMenuCard, cardFrom, dayLabel, timeLabel, placeOf, dayKey, startOfDay, plain, BASE, CARD_ID, SITE, CARD_TTL_S, DAY, WINDOW_DAYS, LIMIT };
+/**
+ * The rows the card reads: this week's public events, and holidays only when no other public event is on (11-07:
+ * the only rows were holidays, so the card was empty and the menu left Today out). A real event always comes first.
+ */
+async function upcomingRows(events, at = Date.now()) {
+    const window = { from: new Date(at).toISOString(), to: new Date(at + WINDOW_DAYS * DAY).toISOString(), limit: 50 };
+    const rows = await events.listPublic({ ...window, exceptKinds: ['holiday'] });
+    return rows.length ? rows : await events.listPublic({ ...window, kinds: ['holiday'] });
+}
+
+module.exports = { upcomingRows, createMenuCard, cardFrom, dayLabel, timeLabel, placeOf, dayKey, startOfDay, plain, BASE, CARD_ID, SITE, CARD_TTL_S, DAY, WINDOW_DAYS, LIMIT };

@@ -6,7 +6,7 @@
 // empty: the schedule is honest.
 const assert = require('assert');
 const contracts = require('openvibe-contracts');
-const { createMenuCard, cardFrom, dayLabel, timeLabel, placeOf, CARD_TTL_S } = require('../server/menu-card');
+const { createMenuCard, cardFrom, dayLabel, timeLabel, placeOf, upcomingRows, CARD_TTL_S } = require('../server/menu-card');
 
 const NOW = Date.parse('2026-11-07T12:00:00Z');
 const event = (over = {}) => ({
@@ -28,6 +28,21 @@ const card = cardFrom([
     event({ id: 'blank', title: '  ' }),
 ], NOW);
 const checked = contracts.validate('frame.menu-cards@1', [card]);
+
+// ── Holidays only when nothing else is on this week (11-07) ──
+(async () => {
+    const asked = [];
+    const store = (rows) => ({ listPublic: async (q) => { asked.push(q); return rows(q); } });
+    const holiday = event({ id: 'h1', title: 'Veterans Day', kind: 'holiday', starts_at: '2026-11-11T00:00:00Z' });
+    const quiet = await upcomingRows(store((q) => (q.kinds ? [holiday] : [])), NOW);
+    assert.deepStrictEqual(quiet.map((r) => r.id), ['h1'], 'a quiet week shows its holidays');
+    assert.deepStrictEqual(cardFrom(quiet, NOW).items[0].meta, 'Wed 11 Nov · Holiday', 'a holiday reads as a day, not 00:00');
+    assert.deepStrictEqual(asked.map((q) => [q.exceptKinds || null, q.kinds || null]), [[['holiday'], null], [null, ['holiday']]]);
+    asked.length = 0;
+    const busy = await upcomingRows(store((q) => (q.kinds ? [holiday] : [event()])), NOW);
+    assert.deepStrictEqual(busy.map((r) => r.id), ['ev1'], 'a real event comes first, and holidays are not asked for');
+    assert.strictEqual(asked.length, 1);
+})().catch((e) => { console.error(e); process.exit(1); });
 assert.ok(checked.valid, JSON.stringify(checked.errors));
 assert.deepStrictEqual(Object.keys(card).sort(), ['id', 'items', 'kind', 'more', 'site', 'title', 'ttl_s', 'updated_at']);
 assert.strictEqual(card.id, 'today');
