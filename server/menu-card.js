@@ -45,6 +45,24 @@ function dayLabel(iso, at) {
     return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(start));
 }
 
+/**
+ * A holiday's own day, in its own zone: 11 November in Paris starts at 23:00 UTC on the 10th, and reads "Wed 11 Nov",
+ * "Tomorrow" or "Today" as it is there. An unknown zone falls back to dayLabel.
+ */
+function holidayDay(iso, tz, at) {
+    const d = new Date(iso);
+    if (!Number.isFinite(d.getTime())) return '';
+    try {
+        const zone = tz || 'UTC';
+        const key = (t) => new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t));
+        if (key(d) === key(at)) return 'Today';
+        if (key(d) === key(at + DAY)) return 'Tomorrow';
+        return new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'short', day: 'numeric', month: 'short' }).format(d);
+    } catch {
+        return dayLabel(iso, at);
+    }
+}
+
 /** "14:00 UTC" in the event's own zone (UTC when it has none or it is unknown). */
 function timeLabel(iso, tz) {
     const d = new Date(iso);
@@ -91,7 +109,7 @@ function cardFrom(events, at = Date.now()) {
         if (firstDay === null) firstDay = dayKey(e.starts_at);
         // A holiday is a whole day: its day and the word, not a 00:00 start time or a place.
         const meta = e.kind === 'holiday'
-            ? [dayLabel(e.starts_at, at), 'Holiday'].filter(Boolean).join(' · ')
+            ? [holidayDay(e.starts_at, e.tz, at), 'Holiday'].filter(Boolean).join(' · ')
             : [[dayLabel(e.starts_at, at), timeLabel(e.starts_at, e.tz)].filter(Boolean).join(' · '), plain(placeOf(e), 60)].filter(Boolean).join(' · ');
         items.push({ title, ...(meta ? { meta: plain(meta, 120) } : {}), url: `${BASE}/e/${encodeURIComponent(String(e.id))}` });
         if (items.length >= LIMIT) break;
@@ -150,7 +168,13 @@ function createMenuCard({ load, now = Date.now } = {}) {
 async function upcomingRows(events, at = Date.now()) {
     const window = { from: new Date(at).toISOString(), to: new Date(at + WINDOW_DAYS * DAY).toISOString(), limit: 50 };
     const rows = await events.listPublic({ ...window, exceptKinds: ['holiday'] });
-    return rows.length ? rows : await events.listPublic({ ...window, kinds: ['holiday'] });
+    // "Nothing else on" means nothing still to start: a stream already live is not upcoming, and the card leaves it out.
+    if (rows.some((r) => Date.parse(r.starts_at) >= at)) return rows;
+    // Many countries share a holiday's name (three Armistice Days on 11 Nov): each name once, the first by start.
+    const seen = new Set();
+    const holidays = (await events.listPublic({ ...window, kinds: ['holiday'] }))
+        .filter((h) => { const k = String(h.title || '').trim().toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+    return [...rows, ...holidays];
 }
 
 module.exports = { upcomingRows, createMenuCard, cardFrom, dayLabel, timeLabel, placeOf, dayKey, startOfDay, plain, BASE, CARD_ID, SITE, CARD_TTL_S, DAY, WINDOW_DAYS, LIMIT };

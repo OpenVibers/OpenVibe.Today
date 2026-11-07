@@ -42,6 +42,16 @@ const checked = contracts.validate('frame.menu-cards@1', [card]);
     const busy = await upcomingRows(store((q) => (q.kinds ? [holiday] : [event()])), NOW);
     assert.deepStrictEqual(busy.map((r) => r.id), ['ev1'], 'a real event comes first, and holidays are not asked for');
     assert.strictEqual(asked.length, 1);
+    // A stream already live is not upcoming: the week is still quiet, and its holidays show, each name once.
+    asked.length = 0;
+    const liveNow = event({ id: 'live', status: 'live', starts_at: '2026-11-07T11:00:00Z' });
+    const twice = event({ id: 'h2', title: 'Veterans Day', kind: 'holiday', starts_at: '2026-11-11T05:00:00Z' });
+    const quietButLive = await upcomingRows(store((q) => (q.kinds ? [holiday, twice] : [liveNow])), NOW);
+    assert.deepStrictEqual(quietButLive.map((r) => r.id), ['live', 'h1'], 'holidays come in, each name once');
+    assert.deepStrictEqual(cardFrom(quietButLive, NOW).items.map((i) => i.title), ['Veterans Day'], 'and the card shows the holiday');
+    // A holiday stored at local midnight reads as its own day: Paris's 11 Nov starts 23:00 UTC on the 10th.
+    const paris = event({ id: 'h3', title: 'Armistice Day', kind: 'holiday', tz: 'Europe/Paris', starts_at: '2026-11-10T23:00:00Z' });
+    assert.strictEqual(cardFrom([paris], NOW).items[0].meta, 'Wed 11 Nov · Holiday');
 })().catch((e) => { console.error(e); process.exit(1); });
 assert.ok(checked.valid, JSON.stringify(checked.errors));
 assert.deepStrictEqual(Object.keys(card).sort(), ['id', 'items', 'kind', 'more', 'site', 'title', 'ttl_s', 'updated_at']);
