@@ -2,6 +2,9 @@
 
 > The network's time bus and calendar authority.
 
+**Live site:** https://openvibe.today · **API docs:** https://openvibe.services · **For AI:** https://openvibe.today/llms.txt
+**Run it:** `npm ci && npm run dev` (Node 22 or newer) · **Tests:** `npm test`
+
 **Status:** v1 written and tested (see [STATUS.json](STATUS.json)).
 **Domain:** `openvibe.today` · **Port:** 5100 · **Service id:** `today` · **Env prefix:** `TODAY`
 **License:** AGPL-3.0-only (same as every OpenVibe service).
