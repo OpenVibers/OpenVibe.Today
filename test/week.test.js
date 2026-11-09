@@ -64,9 +64,10 @@ const week = require('../server/week');
             assert.match(page.text, /href="\/me\/week\?start=\d{4}-\d{2}-\d{2}" rel="prev"/);
             const paris = await t.get('/me/week', { as: ana, headers: { cookie: 'td_tz=Europe%2FParis' } });
             assert.match(paris.text, /data-tz="Europe\/Paris"/, 'the browser\'s zone, from its cookie');
-            const asked = await t.get('/me/week?tz=America%2FChicago&start=2026-11-11', { as: ana });
+            // A week that is never this one again (the test asked for Nov 9 – 15 until that week came: 2026-11-09).
+            const asked = await t.get('/me/week?tz=America%2FChicago&start=2026-10-14', { as: ana });
             assert.match(asked.text, /data-tz="America\/Chicago"/);
-            assert.match(asked.text, /<h1>Nov 9 – 15, 2026<\/h1>/);
+            assert.match(asked.text, /<h1>Oct 12 – 18, 2026<\/h1>/);
             assert.match(asked.text, /<a class="ovk-btn ovk-btn--quiet ovk-btn--small" href="\/me\/week">This week<\/a>/, 'another week offers the way back');
             const quick = await t.get('/me/reminders', { as: ana, form: { text: 'water the plants every Sunday at 10am', tz: 'Asia/Tokyo', back: 'week' } });
             assert.strictEqual(quick.headers.get('location'), '/me/week', 'added from the week: back to the week');
