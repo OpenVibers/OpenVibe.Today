@@ -128,11 +128,11 @@ const cookieJar = (res) => res.headers.getSetCookie().map((c) => c.split(';')[0]
         assert.notStrictEqual(proxied.status, 200, 'a proxied request is not loopback');
     });
 
-    await check('public pages are complete without JavaScript', async () => {
+    await check('public pages are complete without JavaScript (server-rendered nav, SSR footer)', async () => {
         for (const p of ['/', '/developers']) {
             const r = await t.get(p);
             assert.strictEqual(r.status, 200, p);
-            assert.match(r.text, /<noscript><nav/);
+            assert.match(r.text, /<div id="navbar-mount"><nav class="openvibe-navbar"[^>]*data-ov-server-nav="true"/, `${p}: the server-rendered navbar is in the first HTML`);
             assert.match(r.text, /<footer id="ov-footer"/);
             assert.match(r.text, /<main id="main"/);
         }
