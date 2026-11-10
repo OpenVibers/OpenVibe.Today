@@ -29,7 +29,7 @@ function jsonLd(html) {
         assert.strictEqual(r.status, 200);
         assert.strictEqual(r.headers.get('cache-control'), 'public, max-age=60');
         assert.strictEqual(r.headers.get('vary'), 'Cookie');
-        for (const marker of ['id="td-home"', 'id="td-upcoming"', 'id="main"', '<noscript><nav', '<footer id="ov-footer"', 'Public stream']) assert.ok(r.text.includes(marker), marker);
+        for (const marker of ['id="td-home"', 'id="td-upcoming"', 'id="main"', '<div id="navbar-mount"><nav', '<footer id="ov-footer"', 'Public stream']) assert.ok(r.text.includes(marker), marker);
         assert.strictEqual(scripts(r.text).length, 1, 'the page carries exactly one JSON-LD script');
         const types = jsonLd(r.text).map((x) => x['@type']);
         assert.ok(types.includes('WebSite'), types.join(','));
