@@ -169,8 +169,6 @@ html.ov-motion .td-demo-toast { animation: td-toast 4.5s ease-in-out infinite; }
 .td-eps dd { margin: 6px 0 0; color: var(--text-secondary, #96a7c2); line-height: 1.5; }
 .td section > h2 { margin-top: 8px; }
 
-@media (prefers-reduced-motion: reduce) { .td-pill.is-live::before, .td-demo-toast { animation: none !important; } .td-ring-dot { animation: none !important; } }
-html[data-ov-motion=reduced] .td-demo-toast, html[data-ov-motion=reduced] .td-ring-dot { animation: none !important; }
 
 /* Touch targets on phones (fleet audit 2026-10-29): the touch-only hit area for this group. Nothing moves with a mouse. */
 @media (pointer: coarse) {
