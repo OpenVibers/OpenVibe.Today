@@ -5,7 +5,7 @@
 html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--text-primary, #e6edf7); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .skip { position: absolute; left: -9999px; }
 .skip:focus { left: 12px; top: 12px; z-index: 99; padding: 8px 12px; border-radius: 10px; background: var(--bg-card, #0f1729); color: inherit; }
-.td-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 64px; }
+.td-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
 .td-page-pad { padding-top: clamp(20px, 4vw, 40px); }
 .td-narrow { max-width: 720px; }
 .td a:not([class]) { color: var(--room-strong); }
