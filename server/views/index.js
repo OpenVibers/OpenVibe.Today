@@ -466,7 +466,7 @@ ${problem ? `<p class="td-note is-bad" role="alert">${esc(problem)}</p>` : ''}
 <label class="td-field"><span>Time zone</span><select name="tz" data-tz>${zones.map((z) => `<option value="${esc(z)}"${z === v.tz ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`).join('')}</select><small>The time above is read in this zone. Everyone sees it in their own.</small></label>
 <label class="td-field"><span>Description <i>optional</i></span><textarea name="description" rows="3" maxlength="1000" placeholder="What you are doing, who is joining">${esc(v.description || '')}</textarea></label>
 <fieldset class="td-opts"><legend>Who can see it?</legend>${radio('visibility', 'public', 'Everyone', 'Here, on your channel and in feeds')}${radio('visibility', 'followers', 'Followers', 'Only people who follow you')}</fieldset>
-<div class="td-acts"><button class="ovk-btn ovk-btn--primary" type="submit">Schedule it</button><a class="ovk-btn ovk-btn--quiet" href="/me">Back to your agenda</a></div>
+<div class="td-acts"><button class="ovk-btn ovk-btn--primary" type="submit" data-ov-guide="today.schedule">Schedule it</button><a class="ovk-btn ovk-btn--quiet" href="/me">Back to your agenda</a></div>
 </form></div>`;
 }
 
