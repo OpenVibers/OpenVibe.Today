@@ -135,6 +135,7 @@ function jsonLd(html) {
         assert.strictEqual(form.status, 200);
         assert.ok(form.text.includes('id="td-schedule-form"'));
         assert.ok(form.text.includes('method="post" action="/schedule"'));
+        assert.ok(form.text.includes('data-ov-guide="today.schedule"'), 'the schedule form has the Quest guide target');
         const local = new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 16);
         const r = await t.get('/schedule', { as: alice, form: { kind: 'stream', title: 'From the form', starts_at: local, tz: 'Europe/Berlin', description: 'Form text', visibility: 'public' } });
         assert.strictEqual(r.status, 303, r.text.slice(0, 300));
