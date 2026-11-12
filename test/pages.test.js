@@ -169,7 +169,7 @@ function jsonLd(html) {
         assert.strictEqual(hashed.headers.get('cache-control'), 'public, max-age=31536000, immutable');
         const wrong = await t.get('/css/today.css?v=deadbeefdeadbeef');
         assert.strictEqual(wrong.status, 200);
-        assert.strictEqual(wrong.headers.get('cache-control'), 'public, max-age=300, stale-while-revalidate=86400');
+        assert.strictEqual(wrong.headers.get('cache-control'), 'public, max-age=300, stale-while-revalidate=300');
         const js = await t.get('/js/today.js');
         assert.strictEqual(js.status, 200);
         assert.match(js.headers.get('content-type'), /javascript/);
