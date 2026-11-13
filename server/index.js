@@ -37,7 +37,7 @@ async function start() {
     // queues requests in the kernel instead of answering 502. Without the socket unit, the usual listen.
     const socketActivated = process.env.LISTEN_FDS === '1' && Number(process.env.LISTEN_PID) === process.pid;
     const server = app.listen(...(socketActivated ? [{ fd: 3 }] : [config.port, config.host]), () => {
-        console.log(`[OpenVibe.Today] ${config.nodeEnv} on http://${config.host}:${config.port} → ${config.baseUrl} (db ${ctx.s.db.store})`);
+        console.log(`[OpenVibe.Today] ${config.nodeEnv} on http://${config.host}:${config.port} (public ${config.baseUrl}) (db ${ctx.s.db.store})`);
         // Warm the Network signing key immediately: a service nobody has signed in to yet must not read degraded
         // only because the first JWKS fetch had not happened.
         ctx.keys.ensure().catch(() => {});
