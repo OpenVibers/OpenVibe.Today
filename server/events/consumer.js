@@ -170,7 +170,7 @@ function createEventsConsumer({ config, s, accountData, accountSend = null, now 
                 if (mine.some((x) => x.topic_pattern === topic)) continue;
                 const r = await call('POST', '/api/v1/subscriptions', { topic_pattern: topic, endpoint, secret });
                 if (!r.ok && r.status !== 409) throw new Error(`subscribing to ${topic}: ${r.status} ${r.body.code || ''}`);
-                if (r.ok) log.log(`[OpenVibe.Today] subscription created: ${r.body.id} (${topic} → ${endpoint})`);
+                if (r.ok) log.log(`[OpenVibe.Today] subscription created: ${r.body.id} (topic ${topic}, endpoint ${endpoint})`);
             }
         };
         const delays = [0, 10_000, 60_000, 5 * 60_000, 15 * 60_000];
@@ -226,7 +226,7 @@ function startSubscriptions({
             if (mine.some((x) => x.topic_pattern === topic)) continue;
             const r = await call('POST', '/api/v1/subscriptions', { topic_pattern: topic, endpoint, secret });
             if (!r.ok && r.status !== 409) throw new Error(`subscribing to ${topic}: ${r.status} ${r.body.code || ''}`);
-            if (r.ok) log.log(`[OpenVibe.Today] subscription created: ${r.body.id} (${topic} → ${endpoint})`);
+            if (r.ok) log.log(`[OpenVibe.Today] subscription created: ${r.body.id} (topic ${topic}, endpoint ${endpoint})`);
         }
     };
     const delays = [0, 10_000, 60_000, 5 * 60_000, 15 * 60_000];
