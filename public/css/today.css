@@ -33,10 +33,12 @@ html, body { margin: 0; background: var(--bg-primary, #0a0f1c); color: var(--tex
 .td-tile-m { font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .td-tile-d { margin-top: 3px; font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; }
 .td-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: .72rem; font-weight: 800; letter-spacing: .02em; vertical-align: middle; white-space: nowrap; }
-.td-pill.is-live { background: var(--live-red, #e11d48); color: #fff; }
+/* Pills read at 4.5:1 in both themes (axe on /, 11-15): white on a theme's live red (#ef4444) is 3.8:1, so the live
+   pill is a fifth darker; the quiet pills lean toward the text colour. */
+.td-pill.is-live { background: color-mix(in srgb, var(--live-red, #e11d48), #000 20%); color: #fff; }
 .td-pill.is-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: td-pulse 1.4s ease-in-out infinite; }
-.td-pill.is-off { background: color-mix(in srgb, var(--text-muted, #7386a3) 22%, transparent); color: var(--text-secondary, #96a7c2); }
-.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: var(--text-secondary, #9aa7bd); }
+.td-pill.is-off { background: color-mix(in srgb, var(--text-muted, #7386a3) 22%, transparent); color: color-mix(in srgb, var(--text-secondary, #96a7c2) 65%, var(--text-primary, #e6edf7)); }
+.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: color-mix(in srgb, var(--text-secondary, #9aa7bd) 65%, var(--text-primary, #e6edf7)); }
 .td-tag { display: inline-flex; padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-weight: 700; color: var(--text-secondary, #96a7c2); border: 1px solid var(--border, #1f2d47); white-space: nowrap; }
 .td-tag.is-remind { border-color: color-mix(in srgb, var(--room-accent) 55%, var(--border, #1f2d47)); color: var(--room-strong); }
 @keyframes td-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
