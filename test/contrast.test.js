@@ -8,8 +8,8 @@ const path = require('path');
 
 const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'today.css'), 'utf8');
 assert.ok(
-    css.includes('.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: var(--text-secondary, #9aa7bd); }'),
-    'the done pill takes the secondary text colour on its muted wash'
+    css.includes('.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: color-mix(in srgb, var(--text-secondary, #9aa7bd) 65%, var(--text-primary, #e6edf7)); }'),
+    'the done pill takes the secondary text colour, leaning toward the text colour (11-15), on its muted wash'
 );
 assert.ok(!css.includes('.td-pill.is-done { background: color-mix(in srgb, var(--text-muted, #7386a3) 14%, transparent); color: var(--text-muted, #7386a3); }'), 'the muted done text is gone');
 console.log('contrast: the done pill reads on dark');
